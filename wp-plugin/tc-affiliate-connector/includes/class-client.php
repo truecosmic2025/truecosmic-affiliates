@@ -11,6 +11,17 @@ class TCAFF_Client {
         return defined('TCAFF_SHARED_SECRET') ? TCAFF_SHARED_SECRET : (string) get_option('tcaff_secret', '');
     }
 
+    /** "shop" (tracking, orders, products) or "crm" (FluentCRM bridge only). TCAFF_ROLE in wp-config.php wins. */
+    public static function role() {
+        $role = defined('TCAFF_ROLE') ? TCAFF_ROLE : get_option('tcaff_role', '');
+        if (!in_array($role, array('shop', 'crm'), true)) $role = class_exists('WooCommerce') ? 'shop' : 'crm';
+        return $role;
+    }
+
+    public static function is_shop() {
+        return self::role() === 'shop' && class_exists('WooCommerce');
+    }
+
     public static function sign($body) {
         return hash_hmac('sha256', $body, self::secret());
     }
@@ -28,7 +39,8 @@ class TCAFF_Client {
         $body = wp_json_encode($data);
         $res = wp_remote_post(self::app_url() . $path, array(
             'timeout' => $timeout,
-            'headers' => array('Content-Type' => 'application/json', 'X-TC-Signature' => self::sign($body)),
+            // X-TC-Site lets the app ignore shop events from any site other than the configured shop
+            'headers' => array('Content-Type' => 'application/json', 'X-TC-Signature' => self::sign($body), 'X-TC-Site' => home_url(), 'X-TC-Role' => self::role()),
             'body'    => $body,
         ));
         if (is_wp_error($res)) return $res;

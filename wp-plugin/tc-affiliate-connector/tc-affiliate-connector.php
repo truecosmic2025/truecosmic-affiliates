@@ -2,7 +2,7 @@
 /**
  * Plugin Name: TrueCosmic Affiliate Connector
  * Description: Connects WooCommerce and FluentCRM to the TrueCosmic Affiliates app: tracks referral links, reports orders and refunds, keeps products in sync, and lets the app update FluentCRM contacts.
- * Version: 1.3.1
+ * Version: 1.3.2
  * Author: TrueCosmic
  * Requires PHP: 7.4
  * WC requires at least: 6.0
@@ -10,7 +10,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('TCAFF_VERSION', '1.3.1');
+define('TCAFF_VERSION', '1.3.2');
 define('TCAFF_FILE', __FILE__);
 
 require_once __DIR__ . '/includes/class-client.php';
@@ -28,9 +28,16 @@ add_action('before_woocommerce_init', function () {
 });
 
 add_action('plugins_loaded', function () {
-    TCAFF_Tracking::init();
-    TCAFF_Orders::init();
-    TCAFF_Products::init();
+    // "CRM only" sites (e.g. the main site, which also runs WooCommerce) just answer the app's FluentCRM calls:
+    // no referral tracking, no order reports, no product sync.
+    if (TCAFF_Client::is_shop()) {
+        TCAFF_Tracking::init();
+        TCAFF_Orders::init();
+        TCAFF_Products::init();
+    } else {
+        wp_clear_scheduled_hook('tcaff_daily_product_sync');
+        wp_clear_scheduled_hook('tcaff_refresh_config');
+    }
     TCAFF_Rest::init();
     TCAFF_Admin::init();
 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { verifySignature } from "@/lib/wp";
+import { verifySignature, fromShop } from "@/lib/wp";
 import { findAffiliateByRef } from "@/lib/affiliates";
 import { recordVisit, domainOf, pathOf } from "@/lib/visits";
 import { getSettings } from "@/lib/settings";
@@ -16,6 +16,7 @@ export async function POST(req) {
   if (!verifySignature(body, req.headers.get("x-tc-signature"))) {
     return NextResponse.json({ error: "invalid signature" }, { status: 401 });
   }
+  if (!fromShop(req)) return NextResponse.json({ ok: false, reason: "not the configured shop site" }, { status: 409 });
   const { ref, url, referrer, campaign, ip, mode = "ref", current_ref, ppc } = JSON.parse(body);
   const s = await getSettings();
 

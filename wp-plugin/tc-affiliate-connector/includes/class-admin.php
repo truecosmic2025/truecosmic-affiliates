@@ -23,6 +23,10 @@ class TCAFF_Admin {
         if (!current_user_can('manage_options')) wp_die('Not allowed');
         check_admin_referer('tcaff_save');
         update_option('tcaff_app_url', esc_url_raw(wp_unslash($_POST['app_url'])));
+        if (!defined('TCAFF_ROLE') && isset($_POST['role']) && in_array($_POST['role'], array('shop', 'crm'), true)) {
+            update_option('tcaff_role', $_POST['role']);
+            if ($_POST['role'] === 'crm') wp_clear_scheduled_hook('tcaff_daily_product_sync');
+        }
         if (!defined('TCAFF_SHARED_SECRET') && !empty($_POST['secret'])) {
             update_option('tcaff_secret', sanitize_text_field(wp_unslash($_POST['secret'])), false);
         }
@@ -71,6 +75,11 @@ class TCAFF_Admin {
                         <td><?php if (defined('TCAFF_SHARED_SECRET')) : ?>Set in wp-config.php<?php else : ?>
                             <input id="secret" name="secret" type="password" class="regular-text" placeholder="<?php echo get_option('tcaff_secret') ? '•••••••• (saved, leave blank to keep)' : ''; ?>">
                             <p class="description">Must match WP_SHARED_SECRET in the app. You can also define TCAFF_SHARED_SECRET in wp-config.php.</p><?php endif; ?></td></tr>
+                    <tr><th>Site role</th>
+                        <td><?php if (defined('TCAFF_ROLE')) : ?>Set in wp-config.php: <strong><?php echo esc_html(TCAFF_Client::role()); ?></strong><?php else : $role = TCAFF_Client::role(); ?>
+                            <label style="display:block;margin-bottom:6px"><input type="radio" name="role" value="shop" <?php checked($role, 'shop'); ?> <?php disabled(!class_exists('WooCommerce')); ?>> <strong>Shop</strong>: track referral links, report orders and sync products (the site that sells the affiliate products)</label>
+                            <label style="display:block"><input type="radio" name="role" value="crm" <?php checked($role, 'crm'); ?>> <strong>CRM only</strong>: just receive affiliate contacts and tags into FluentCRM (no tracking, orders or products)</label>
+                            <?php endif; ?></td></tr>
                     <tr><th>Tracking</th><td>Referral variable <code><?php echo esc_html(TCAFF_Client::referral_var()); ?></code>, cookie <?php echo (int) TCAFF_Client::cookie_days(); ?> days (managed in the app)</td></tr>
                 </table>
                 <?php submit_button('Save & connect'); ?>
@@ -78,10 +87,10 @@ class TCAFF_Admin {
             <h2>Tools</h2>
             <?php
             $tools = array('test' => 'Test connection');
-            if (class_exists('WooCommerce')) $tools['sync'] = 'Sync all products now';
+            if (TCAFF_Client::is_shop()) $tools['sync'] = 'Sync all products now';
             if (function_exists('FluentCrmApi')) $tools['crm_fields'] = 'Create FluentCRM affiliate fields';
             ?>
-            <p class="description">This site: WooCommerce <?php echo class_exists('WooCommerce') ? 'active (shop: tracking, orders, products)' : 'not active'; ?> · FluentCRM <?php echo function_exists('FluentCrmApi') ? 'active (receives affiliate contacts and tags)' : 'not active'; ?></p>
+            <p class="description">This site: role <strong><?php echo TCAFF_Client::is_shop() ? 'Shop' : 'CRM only'; ?></strong> · WooCommerce <?php echo class_exists('WooCommerce') ? 'active' : 'not active'; ?> · FluentCRM <?php echo function_exists('FluentCrmApi') ? 'active (receives affiliate contacts and tags)' : 'not active'; ?></p>
             <?php foreach ($tools as $key => $label) : ?>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-block;margin-right:8px">
                     <?php wp_nonce_field('tcaff_action'); ?>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifySignature } from "@/lib/wp";
+import { verifySignature, fromShop } from "@/lib/wp";
 import { logEvent } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { upsertProduct, markProductDeleted } from "@/lib/products";
@@ -23,6 +23,10 @@ export async function POST(req) {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
   const { event, data } = evt;
+  if (event !== "ping" && !fromShop(req)) {
+    await logEvent(`webhook:${event}`, "skipped", `ignored: sent by ${req.headers.get("x-tc-site")}, which isn't the shop (${process.env.WP_SITE_URL}). Set that site's connector to "CRM only".`);
+    return NextResponse.json({ ok: false, error: "this site is not the configured shop; set its connector role to CRM only" }, { status: 409 });
+  }
   try {
     switch (event) {
       case "ping": {
