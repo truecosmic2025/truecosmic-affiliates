@@ -69,7 +69,7 @@ class TCAFF_Products {
 
     /** Sends every product in batches. Returns count sent or WP_Error. */
     public static function sync_all() {
-        if (!class_exists('WooCommerce')) return new WP_Error('woocommerce_missing', 'WooCommerce is not active on this site');
+        if (!TCAFF_Client::is_shop()) return new WP_Error('not_shop', 'This site\'s connector role is CRM only, so it has no products to sync');
         $page = 1;
         $count = 0;
         do {

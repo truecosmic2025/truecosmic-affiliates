@@ -51,6 +51,7 @@ model Affiliate {
   id                     String                 @id @default(cuid())
   legacyId               Int?                   @unique // AffiliateWP affiliate_id, keeps old ?ref=123 links working
   code                   String                 @unique // referral slug used in ?ref=
+  aliases                String[]               @default([]) // other ?ref= values that credit this affiliate (old AffiliateWP username / custom slug), lowercase
   user                   User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   userId                 String?                @unique
   email                  String                 @unique

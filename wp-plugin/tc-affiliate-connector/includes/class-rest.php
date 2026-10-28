@@ -11,9 +11,14 @@ class TCAFF_Rest {
         $ns = 'tc-affiliates/v1';
         $args = array('methods' => 'POST', 'permission_callback' => array(__CLASS__, 'check_signature'));
         register_rest_route($ns, '/mail', $args + array('callback' => array(__CLASS__, 'mail')));
-        register_rest_route($ns, '/crm/contact', $args + array('callback' => array(__CLASS__, 'crm_contact')));
-        register_rest_route($ns, '/sync-products', $args + array('callback' => array(__CLASS__, 'sync_products')));
-        register_rest_route($ns, '/coupons/create', $args + array('callback' => array(__CLASS__, 'create_coupon')));
+        // Each route exists only where it belongs: CRM routes need FluentCRM, shop routes need the Shop role
+        if (function_exists('FluentCrmApi')) {
+            register_rest_route($ns, '/crm/contact', $args + array('callback' => array(__CLASS__, 'crm_contact')));
+        }
+        if (TCAFF_Client::is_shop()) {
+            register_rest_route($ns, '/sync-products', $args + array('callback' => array(__CLASS__, 'sync_products')));
+            register_rest_route($ns, '/coupons/create', $args + array('callback' => array(__CLASS__, 'create_coupon')));
+        }
     }
 
     public static function check_signature(WP_REST_Request $req) {

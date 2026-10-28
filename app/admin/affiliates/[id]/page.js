@@ -70,6 +70,7 @@ export default async function AffiliateDetail({ params, searchParams }) {
             <div><label className="label">PayPal email</label><input name="paymentEmail" defaultValue={a.paymentEmail || ""} className="input" /></div>
             <div><label className="label">Website</label><input name="website" defaultValue={a.website || ""} className="input" /></div>
             <div><label className="label">Referral code (custom slug)</label><input name="code" defaultValue={a.code} className="input font-mono" /></div>
+            <div><label className="label">Old link names (also credit this affiliate)</label><input name="aliases" defaultValue={a.aliases.join(", ")} placeholder="e.g. old username" className="input font-mono" /></div>
             <div><label className="label">Status</label><select name="status" defaultValue={a.status} className="input"><option>ACTIVE</option><option>PENDING</option><option>INACTIVE</option><option>REJECTED</option></select></div>
             <div><label className="label">Group</label><select name="groupId" defaultValue={a.groupId || ""} className="input"><option value="">None</option>{groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
             <div><label className="label">Recruited by (multi-tier)</label><select name="parentId" defaultValue={a.parentId || ""} className="input"><option value="">Nobody</option>{others.map((o) => <option key={o.id} value={o.id}>{fullName(o)}</option>)}</select></div>

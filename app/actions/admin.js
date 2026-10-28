@@ -67,6 +67,7 @@ export async function updateAffiliate(id, f) {
       parentId,
       emailOnReferral: f.get("emailOnReferral") === "on",
       coupons: (str(f, "coupons") || "").split(",").map((c) => c.trim()).filter(Boolean),
+      aliases: [...new Set((str(f, "aliases") || "").split(",").map((c) => c.trim().toLowerCase()).filter(Boolean))].filter((v) => v !== (code || before.code)),
       ...(code ? { code } : {}),
       ...rateFields(f),
     },
