@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  AFFILIATE
+}
+
+enum AffiliateStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  REJECTED
+}
+
+enum RateType {
+  PERCENTAGE
+  FLAT
+}
+
+enum ReferralStatus {
+  PENDING
+  UNPAID
+  PAID
+  REJECTED
+}
+
+enum PayoutStatus {
+  PROCESSING
+  PAID
+  FAILED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String?
+  role         Role       @default(AFFILIATE)
+  passwordHash String?
+  affiliate    Affiliate?
+  createdAt    DateTime   @default(now())
+}
+
+model Affiliate {
+  id            String          @id @default(cuid())
+  legacyId      Int?            @unique // AffiliateWP affiliate_id, keeps old ?ref=123 links working
+  code          String          @unique // referral slug used in ?ref=
+  user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId        String?         @unique
+  email         String          @unique
+  firstName     String?
+  lastName      String?
+  paymentEmail  String?
+  website       String?
+  promotionPlan String?
+  status        AffiliateStatus @default(PENDING)
+  rateType      RateType? // null = use global default
+  rate          Decimal?        @db.Decimal(10, 2)
+  coupons       String[]        @default([])
+  notes         String?
+  crmSyncedAt   DateTime?
+  visits        Visit[]
+  referrals     Referral[]
+  payouts       Payout[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model Product {
+  id                String    @id @default(cuid())
+  wcId              Int       @unique
+  name              String
+  kind              String    @default("other") // course | ebook | coaching | other
+  price             Decimal   @default(0) @db.Decimal(10, 2)
+  permalink         String?
+  status            String    @default("publish")
+  categories        String[]  @default([])
+  commissionEnabled Boolean   @default(true)
+  rateType          RateType?
+  rate              Decimal?  @db.Decimal(10, 2)
+  deleted           Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Visit {
+  id          String     @id @default(cuid())
+  affiliate   Affiliate  @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId String
+  url         String?
+  referrer    String?
+  campaign    String?
+  ipHash      String?
+  converted   Boolean    @default(false)
+  referrals   Referral[]
+  createdAt   DateTime   @default(now())
+
+  @@index([affiliateId, createdAt])
+}
+
+model Referral {
+  id            String         @id @default(cuid())
+  legacyId      Int?           @unique
+  affiliate     Affiliate      @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId   String
+  visit         Visit?         @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  visitId       String?
+  orderId       String?        @unique // WooCommerce order id
+  orderTotal    Decimal        @default(0) @db.Decimal(10, 2)
+  amount        Decimal        @db.Decimal(10, 2) // commission
+  currency      String         @default("GBP")
+  status        ReferralStatus @default(UNPAID)
+  description   String?
+  items         Json?
+  customerEmail String?
+  customerName  String?
+  source        String         @default("link") // link | coupon | manual | import
+  payout        Payout?        @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  payoutId      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([affiliateId, status])
+}
+
+model Payout {
+  id          String       @id @default(cuid())
+  affiliate   Affiliate    @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId String
+  amount      Decimal      @db.Decimal(10, 2)
+  currency    String       @default("GBP")
+  method      String       @default("paypal")
+  status      PayoutStatus @default(PAID)
+  reference   String?
+  referrals   Referral[]
+  createdAt   DateTime     @default(now())
+}
+
+model Creative {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  url         String
+  imageUrl    String?
+  text        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value Json
+}
+
+model EventLog {
+  id        String   @id @default(cuid())
+  kind      String // webhook:order.paid, crm:contact, import:affiliates ...
+  status    String // ok | error | skipped
+  message   String?
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+}
+
+model LoginToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+}

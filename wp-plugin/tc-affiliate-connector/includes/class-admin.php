@@ -1,0 +1,103 @@
+<?php
+if (!defined('ABSPATH')) exit;
+
+class TCAFF_Admin {
+    public static function init() {
+        add_action('admin_menu', function () {
+            add_options_page('TrueCosmic Affiliates', 'TrueCosmic Affiliates', 'manage_options', 'tc-affiliates', array(__CLASS__, 'page'));
+        });
+        add_action('admin_post_tcaff_save', array(__CLASS__, 'save'));
+        add_action('admin_post_tcaff_action', array(__CLASS__, 'action'));
+        add_filter('plugin_action_links_' . plugin_basename(TCAFF_FILE), function ($links) {
+            array_unshift($links, '<a href="' . admin_url('options-general.php?page=tc-affiliates') . '">Settings</a>');
+            return $links;
+        });
+    }
+
+    private static function back($msg) {
+        wp_safe_redirect(add_query_arg('tcaff_msg', rawurlencode($msg), admin_url('options-general.php?page=tc-affiliates')));
+        exit;
+    }
+
+    public static function save() {
+        if (!current_user_can('manage_options')) wp_die('Not allowed');
+        check_admin_referer('tcaff_save');
+        update_option('tcaff_app_url', esc_url_raw(wp_unslash($_POST['app_url'])));
+        if (!defined('TCAFF_SHARED_SECRET') && !empty($_POST['secret'])) {
+            update_option('tcaff_secret', sanitize_text_field(wp_unslash($_POST['secret'])), false);
+        }
+        self::ping();
+        self::back('Settings saved.');
+    }
+
+    /** Pulls referral variable and cookie length from the app so both sides agree. */
+    public static function ping() {
+        $res = TCAFF_Client::event('ping', array('site' => home_url()), 8);
+        if (is_wp_error($res)) return $res;
+        $old_var = TCAFF_Client::referral_var();
+        update_option('tcaff_referral_var', sanitize_key($res['referral_var']));
+        update_option('tcaff_cookie_days', (int) $res['cookie_days']);
+        if ($old_var !== $res['referral_var']) {
+            TCAFF_Tracking::add_endpoint();
+            flush_rewrite_rules();
+        }
+        return $res;
+    }
+
+    public static function action() {
+        if (!current_user_can('manage_options')) wp_die('Not allowed');
+        check_admin_referer('tcaff_action');
+        $do = sanitize_key($_POST['do']);
+        if ($do === 'test') {
+            $res = self::ping();
+            self::back(is_wp_error($res) ? 'Connection failed: ' . $res->get_error_message() : 'Connected! Referral variable "' . $res['referral_var'] . '", ' . $res['cookie_days'] . '-day cookie.');
+        }
+        if ($do === 'sync') {
+            $res = TCAFF_Products::sync_all();
+            self::back(is_wp_error($res) ? 'Sync failed: ' . $res->get_error_message() : "Sent $res products to the affiliate app.");
+        }
+        if ($do === 'crm_fields') {
+            $res = TCAFF_Rest::ensure_crm_fields();
+            self::back($res === false ? 'FluentCRM is not active.' : "Added $res FluentCRM custom fields.");
+        }
+        self::back('Unknown action');
+    }
+
+    public static function page() {
+        $msg = isset($_GET['tcaff_msg']) ? sanitize_text_field(wp_unslash($_GET['tcaff_msg'])) : '';
+        $log = get_option('tcaff_log', array());
+        ?>
+        <div class="wrap">
+            <h1>TrueCosmic Affiliates</h1>
+            <?php if ($msg) : ?><div class="notice notice-info"><p><?php echo esc_html($msg); ?></p></div><?php endif; ?>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <?php wp_nonce_field('tcaff_save'); ?>
+                <input type="hidden" name="action" value="tcaff_save">
+                <table class="form-table">
+                    <tr><th><label for="app_url">Affiliate app URL</label></th>
+                        <td><input id="app_url" name="app_url" type="url" class="regular-text" value="<?php echo esc_attr(get_option('tcaff_app_url')); ?>" placeholder="https://affiliates.truecosmic.com"></td></tr>
+                    <tr><th><label for="secret">Shared secret</label></th>
+                        <td><?php if (defined('TCAFF_SHARED_SECRET')) : ?>Set in wp-config.php<?php else : ?>
+                            <input id="secret" name="secret" type="password" class="regular-text" placeholder="<?php echo get_option('tcaff_secret') ? '•••••••• (saved, leave blank to keep)' : ''; ?>">
+                            <p class="description">Must match WP_SHARED_SECRET in the app. You can also define TCAFF_SHARED_SECRET in wp-config.php.</p><?php endif; ?></td></tr>
+                    <tr><th>Tracking</th><td>Referral variable <code><?php echo esc_html(TCAFF_Client::referral_var()); ?></code>, cookie <?php echo (int) TCAFF_Client::cookie_days(); ?> days (managed in the app)</td></tr>
+                </table>
+                <?php submit_button('Save & connect'); ?>
+            </form>
+            <h2>Tools</h2>
+            <?php foreach (array('test' => 'Test connection', 'sync' => 'Sync all products now', 'crm_fields' => 'Create FluentCRM affiliate fields') as $key => $label) : ?>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-block;margin-right:8px">
+                    <?php wp_nonce_field('tcaff_action'); ?>
+                    <input type="hidden" name="action" value="tcaff_action"><input type="hidden" name="do" value="<?php echo esc_attr($key); ?>">
+                    <?php submit_button($label, 'secondary', 'submit', false); ?>
+                </form>
+            <?php endforeach; ?>
+            <?php if (class_exists('Affiliate_WP')) : ?>
+                <div class="notice notice-warning inline" style="margin-top:20px"><p>AffiliateWP is still active. Once you've imported your affiliates into the new app and checked a test order, deactivate AffiliateWP so commissions aren't recorded twice.</p></div>
+            <?php endif; ?>
+            <h2>Recent connector log</h2>
+            <pre style="background:#fff;padding:12px;max-height:300px;overflow:auto"><?php echo esc_html($log ? implode("\n", $log) : 'Nothing yet'); ?></pre>
+        </div>
+        <?php
+    }
+}
