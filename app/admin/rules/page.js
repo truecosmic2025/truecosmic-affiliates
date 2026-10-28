@@ -1,26 +1,59 @@
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { money } from "@/lib/format";
+import { money, date } from "@/lib/format";
 import { PageHeader, Empty } from "@/components/ui";
 import RateFields from "@/components/RateFields";
-import { saveGroup, deleteGroup, saveCategoryRate, deleteCategoryRate, saveTier, deleteTier, saveBonus, toggleBonus } from "@/app/actions/admin";
+import { savePromotion, togglePromotion, deletePromotion, saveGroup, deleteGroup, saveCategoryRate, deleteCategoryRate, saveTier, deleteTier, saveBonus, toggleBonus } from "@/app/actions/admin";
 
-export default async function Rules() {
+export default async function Rules({ searchParams }) {
   const s = await getSettings();
   const m = (v) => money(v, s.currency);
   const rateLabel = (t, r) => (r == null ? "default" : t === "FLAT" ? m(r) : `${Number(r)}%`);
-  const [groups, cats, tiers, bonuses, products] = await Promise.all([
+  const [groups, cats, tiers, bonuses, products, promos, productList] = await Promise.all([
     prisma.affiliateGroup.findMany({ include: { _count: { select: { affiliates: true } } }, orderBy: { name: "asc" } }),
     prisma.categoryRate.findMany({ orderBy: { category: "asc" } }),
     prisma.rateTier.findMany({ orderBy: [{ metric: "asc" }, { threshold: "asc" }] }),
     prisma.bonus.findMany({ include: { _count: { select: { awards: true } } }, orderBy: { createdAt: "desc" } }),
     prisma.product.findMany({ where: { deleted: false }, select: { categories: true } }),
+    prisma.promotion.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.product.findMany({ where: { deleted: false }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
+  const pName = Object.fromEntries(productList.map((p) => [p.id, p.name]));
+  const gName = Object.fromEntries(groups.map((g) => [g.id, g.name]));
+  const now = new Date();
+  const promoState = (p) => (!p.active ? "paused" : p.startsAt && p.startsAt > now ? "scheduled" : p.endsAt && p.endsAt < now ? "ended" : "running");
   const allCats = [...new Set(products.flatMap((p) => p.categories))].sort();
 
   return (
     <>
-      <PageHeader title="Commission rules" subtitle="Which rate applies: affiliate's product rate → product rate → category rate → affiliate rate → group rate → tier rate → lifetime/recurring rate → default" />
+      <PageHeader title="Commission rules" subtitle="Which rate applies: affiliate's product rate → running promotion → product rate → category rate → affiliate rate → group rate → tier rate → lifetime/recurring rate → default" />
+      {searchParams?.error === "promo" && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">A promotion needs a rate.</p>}
+      <section className="card mb-6">
+        <div className="px-5 pt-5 font-medium">Promotions</div>
+        <p className="muted px-5">Set the rate for a particular campaign, e.g. 10% on coaching packages, or 50% on a course launch week. While a promotion runs it overrides product, category and affiliate rates (but not a deal set for one affiliate on one product).</p>
+        <table className="table mt-3"><thead><tr><th>Promotion</th><th>Rate</th><th>Applies to</th><th>Affiliates</th><th>Dates</th><th>Status</th><th></th></tr></thead>
+          <tbody>{promos.map((p) => (
+            <tr key={p.id}><td className="font-medium">{p.name}</td><td>{rateLabel(p.rateType, p.rate)}</td>
+              <td className="text-xs">{[...p.productIds.map((id) => pName[id] || "deleted product"), ...p.categories].join(", ") || "Whole store"}</td>
+              <td className="text-xs">{p.groupIds.length ? p.groupIds.map((id) => gName[id] || "?").join(", ") : "Everyone"}</td>
+              <td className="whitespace-nowrap text-xs">{p.startsAt ? date(p.startsAt) : "now"} → {p.endsAt ? date(p.endsAt) : "no end"}</td>
+              <td className="text-xs">{promoState(p)}</td>
+              <td className="flex gap-1"><form action={togglePromotion.bind(null, p.id, !p.active)}><button className="btn-secondary btn-sm">{p.active ? "Pause" : "Resume"}</button></form>
+                <form action={deletePromotion.bind(null, p.id)}><button className="btn-danger btn-sm">Delete</button></form></td></tr>
+          ))}</tbody>
+        </table>
+        {!promos.length && <Empty>No promotions</Empty>}
+        <form action={savePromotion} className="grid gap-3 border-t border-slate-100 p-5 md:grid-cols-2">
+          <input name="name" required placeholder="Name, e.g. Coaching packages" className="input" />
+          <RateFields hint="The rate while the promotion runs" />
+          <div><label className="label">Products (optional)</label><select name="productIds" multiple size={5} className="input">{productList.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+          <div><label className="label">Categories (optional)</label><select name="categories" multiple size={5} className="input">{allCats.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+            <p className="mt-1 text-xs text-slate-400">Pick neither for the whole store. Ctrl/⌘-click to pick several.</p></div>
+          <div className="grid grid-cols-2 gap-2"><div><label className="label">Starts</label><input name="startsAt" type="date" className="input" /></div><div><label className="label">Ends</label><input name="endsAt" type="date" className="input" /></div></div>
+          {groups.length > 0 && <div><label className="label">Only for groups (optional)</label><div className="flex flex-wrap gap-3 text-sm">{groups.map((g) => <label key={g.id} className="flex items-center gap-1"><input type="checkbox" name="groupIds" value={g.id} /> {g.name}</label>)}</div></div>}
+          <div className="md:col-span-2"><button className="btn-primary">Add promotion</button></div>
+        </form>
+      </section>
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="card">
           <div className="px-5 pt-5 font-medium">Affiliate groups</div>

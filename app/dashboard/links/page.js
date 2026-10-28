@@ -14,10 +14,10 @@ export default async function Links() {
   const ctx = await commissionContext(affiliate, "sale");
   const prices = {};
   const list = products.map((p) => {
-    const { type, rate } = rateFor({ product: p, affiliate, settings: s, ctx });
+    const { type, rate, promotion } = rateFor({ product: p, affiliate, settings: s, ctx });
     prices[p.id] = money(p.price, s.currency);
     const earn = type === "FLAT" ? money(rate, s.currency) : `${rate}% (${money((Number(p.price) * rate) / 100, s.currency)})`;
-    return { id: p.id, name: p.name, kind: p.kind, permalink: p.permalink, earn };
+    return { id: p.id, name: p.name, kind: p.kind, permalink: p.permalink, earn: promotion ? `${earn} · ${promotion}` : earn };
   });
   return (
     <>

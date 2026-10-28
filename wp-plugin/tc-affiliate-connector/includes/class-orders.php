@@ -88,6 +88,7 @@ class TCAFF_Orders {
         }
         return array(
             'id'       => $order->get_id(),
+            'is_new_customer' => self::is_new_customer($order),
             'is_renewal'      => $is_renewal,
             'parent_order_id' => $parent_id,
             'shipping' => (float) $order->get_shipping_total(),
@@ -106,6 +107,15 @@ class TCAFF_Orders {
             'ref'      => $order->get_meta('_tc_aff_ref'),
             'visit_id' => $order->get_meta('_tc_aff_visit'),
         );
+    }
+
+    /** True when the buyer has no earlier paid order (matched by account and by billing email). */
+    public static function is_new_customer($order) {
+        $base = array('status' => array('wc-processing', 'wc-completed', 'wc-refunded'), 'exclude' => array($order->get_id()), 'limit' => 1, 'return' => 'ids', 'date_created' => '<' . $order->get_date_created()->getTimestamp());
+        if ($order->get_customer_id() && wc_get_orders($base + array('customer_id' => $order->get_customer_id()))) return false;
+        $email = $order->get_billing_email();
+        if ($email && wc_get_orders($base + array('billing_email' => $email))) return false;
+        return true;
     }
 
     public static function send_paid($order_id, $attempt = 1) {

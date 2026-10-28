@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
+import { payableWhere } from "@/lib/payouts";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export async function GET() {
   const user = await currentUser();
   if (user?.role !== "ADMIN") return new Response("Unauthorized", { status: 401 });
   const s = await getSettings();
-  const owed = await prisma.referral.groupBy({ by: ["affiliateId"], where: { status: "UNPAID" }, _sum: { amount: true } });
+  const owed = await prisma.referral.groupBy({ by: ["affiliateId"], where: payableWhere(), _sum: { amount: true } });
   const affs = await prisma.affiliate.findMany({ where: { id: { in: owed.map((o) => o.affiliateId) } } });
   const byId = Object.fromEntries(affs.map((a) => [a.id, a]));
   const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;

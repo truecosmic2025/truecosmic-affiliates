@@ -4,7 +4,7 @@ import { PageHeader, Empty } from "@/components/ui";
 import CopyField from "@/components/CopyField";
 import { createApiKey, deleteApiKey, createWebhook, deleteWebhook, testWebhook } from "@/app/actions/admin";
 
-const EVENTS = ["affiliate.created", "affiliate.approved", "affiliate.updated", "referral.created", "referral.updated", "payout.created"];
+const EVENTS = ["affiliate.created", "affiliate.approved", "affiliate.updated", "referral.created", "referral.updated", "payout.created", "dispute.opened"];
 
 export default async function Api({ searchParams }) {
   const [keys, hooks] = await Promise.all([prisma.apiKey.findMany({ orderBy: { createdAt: "desc" } }), prisma.webhook.findMany({ orderBy: { createdAt: "desc" } })]);

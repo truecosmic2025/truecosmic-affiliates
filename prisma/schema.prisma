@@ -85,6 +85,7 @@ model Affiliate {
   bonusAwards     BonusAward[]
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
+  disputes        Dispute[]
 }
 
 model Product {
@@ -153,6 +154,8 @@ model Referral {
   payoutId         String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+  clearsAt         DateTime? // end of the refund window; not payable before this
+  disputes         Dispute[]
 
   @@unique([orderId, affiliateId, type])
   @@index([affiliateId, status])
@@ -170,6 +173,7 @@ model Payout {
   reference   String?
   notes       String?
   referrals   Referral[]
+  disputes    Dispute[]
   createdAt   DateTime     @default(now())
 }
 
@@ -312,4 +316,47 @@ model Webhook {
   secret    String
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+model Promotion {
+  id         String    @id @default(cuid())
+  name       String
+  rateType   RateType
+  rate       Decimal   @db.Decimal(10, 2)
+  startsAt   DateTime?
+  endsAt     DateTime?
+  categories String[]  @default([]) // empty with no products = whole store
+  productIds String[]  @default([]) // Product.id values
+  groupIds   String[]  @default([]) // empty = all affiliates
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+}
+
+model Dispute {
+  id          String           @id @default(cuid())
+  affiliate   Affiliate        @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId String
+  referral    Referral?        @relation(fields: [referralId], references: [id], onDelete: SetNull)
+  referralId  String?
+  payout      Payout?          @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  payoutId    String?
+  category    String // missing | amount | payout | rejected | other
+  subject     String
+  orderRef    String? // order number the affiliate believes is theirs
+  status      String           @default("open") // open | in_review | resolved | declined
+  messages    DisputeMessage[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model DisputeMessage {
+  id         String   @id @default(cuid())
+  dispute    Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  disputeId  String
+  author     String // affiliate | staff
+  authorName String?
+  body       String
+  createdAt  DateTime @default(now())
 }

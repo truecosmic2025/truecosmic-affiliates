@@ -14,6 +14,8 @@ import { sendTemplate, fireWebhooks, referralJson } from "@/lib/notify";
 import { sendPayPalPayouts } from "@/lib/paypal";
 import { slugify, money } from "@/lib/format";
 import { domainOf } from "@/lib/visits";
+import { payableWhere } from "@/lib/payouts";
+import { staffReply, accountsContact } from "@/lib/disputes";
 
 const str = (f, k) => {
   const v = f.get(k);
@@ -217,7 +219,7 @@ export async function createPayouts(f) {
   let reference = str(f, "reference");
   const batch = [];
   for (const affiliateId of ids) {
-    const refs = await prisma.referral.findMany({ where: { affiliateId, status: "UNPAID" } });
+    const refs = await prisma.referral.findMany({ where: { affiliateId, ...payableWhere() } });
     if (!refs.length) continue;
     const a = await prisma.affiliate.findUnique({ where: { id: affiliateId } });
     batch.push({ a, refs, amount: Math.round(refs.reduce((x, r) => x + Number(r.amount), 0) * 100) / 100 });
@@ -381,6 +383,11 @@ export async function updateSettings(f) {
     defaultRateType: str(f, "defaultRateType"),
     defaultRate: n("defaultRate"),
     minimumPayout: n("minimumPayout"),
+    payoutDay: Math.min(Math.max(n("payoutDay", 1), 1), 28),
+    holdDays: Math.max(n("holdDays", 30), 0),
+    newCustomersOnly: bool("newCustomersOnly"),
+    accountsName: str(f, "accountsName") || "Accounts",
+    accountsEmail: str(f, "accountsEmail") || "",
     autoApproveAffiliates: bool("autoApproveAffiliates"),
     referralsStartPending: bool("referralsStartPending"),
     newProductsEarnCommission: bool("newProductsEarnCommission"),
@@ -510,4 +517,96 @@ export async function inviteImportedAffiliates() {
     );
   }
   redirect(`/admin/import?invited=${list.length}`);
+}
+
+// ---------- Promotions ----------
+export async function savePromotion(f) {
+  await requireAdmin();
+  const { rate, rateType } = rateFields(f);
+  if (rate == null) redirect("/admin/rules?error=promo");
+  const day = (k, end) => (str(f, k) ? new Date(`${str(f, k)}T${end ? "23:59:59" : "00:00:00"}`) : null);
+  await prisma.promotion.create({
+    data: {
+      name: str(f, "name") || "Promotion", rate, rateType, startsAt: day("startsAt"), endsAt: day("endsAt", true),
+      categories: f.getAll("categories").map(String).filter(Boolean),
+      productIds: f.getAll("productIds").map(String).filter(Boolean),
+      groupIds: f.getAll("groupIds").map(String).filter(Boolean),
+    },
+  });
+  await logEvent("promotion:created", "ok", str(f, "name"));
+  revalidatePath("/admin/rules");
+}
+
+export async function togglePromotion(id, active) {
+  await requireAdmin();
+  await prisma.promotion.update({ where: { id }, data: { active } });
+  revalidatePath("/admin/rules");
+}
+
+export async function deletePromotion(id) {
+  await requireAdmin();
+  await prisma.promotion.delete({ where: { id } });
+  revalidatePath("/admin/rules");
+}
+
+// ---------- Disputes ----------
+export async function replyDispute(id, f) {
+  const admin = await requireAdmin();
+  await staffReply(id, { body: str(f, "body"), status: str(f, "status"), staffName: admin.name || (await accountsContact()).name });
+  redirect(`/admin/disputes/${id}?saved=1`);
+}
+
+// Resolution helpers: correct the flagged commission, or add the missing one, straight from the dispute
+export async function resolveAdjustReferral(disputeId, f) {
+  await requireAdmin();
+  const d = await prisma.dispute.findUnique({ where: { id: disputeId } });
+  if (!d?.referralId) redirect(`/admin/disputes/${disputeId}`);
+  const amount = str(f, "amount");
+  const status = str(f, "status");
+  const r = await prisma.referral.update({
+    where: { id: d.referralId },
+    data: { ...(amount != null ? { amount: Number(amount) } : {}), ...(status ? { status } : {}), notes: `Adjusted via dispute ${disputeId}` },
+  });
+  await fireWebhooks("referral.updated", referralJson(r));
+  await syncAffiliateToCrm(r.affiliateId);
+  await logEvent("dispute:adjust", "ok", `referral ${r.id} -> ${r.amount} ${r.status}`);
+  redirect(`/admin/disputes/${disputeId}?adjusted=1`);
+}
+
+export async function resolveAddReferral(disputeId, f) {
+  await requireAdmin();
+  const d = await prisma.dispute.findUnique({ where: { id: disputeId } });
+  const s = await getSettings();
+  const r = await prisma.referral.create({
+    data: {
+      affiliateId: d.affiliateId, amount: Number(str(f, "amount") || 0), orderTotal: Number(str(f, "orderTotal") || 0), orderId: str(f, "orderId"),
+      description: str(f, "description") || "Added after dispute", currency: s.currency, status: "UNPAID", source: "manual", notes: `Added via dispute ${disputeId}`,
+    },
+  });
+  await prisma.dispute.update({ where: { id: disputeId }, data: { referralId: r.id } });
+  await fireWebhooks("referral.created", referralJson(r));
+  await syncAffiliateToCrm(d.affiliateId);
+  redirect(`/admin/disputes/${disputeId}?adjusted=1`);
+}
+
+// ---------- Team (staff logins) ----------
+export async function addStaff(f) {
+  await requireAdmin();
+  const email = str(f, "email")?.toLowerCase();
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) redirect("/admin/team?error=email");
+  await prisma.user.upsert({ where: { email }, create: { email, name: str(f, "name"), role: "ADMIN" }, update: { role: "ADMIN", name: str(f, "name") || undefined } });
+  const s = await getSettings();
+  await sendMail(email, `You've been given access to the ${s.siteName} affiliate admin`, `<p>Hi ${str(f, "name") || "there"},</p><p>You can now sign in to the affiliate admin with this email address (no password needed, we'll email you a link):</p><p><a href="${process.env.APP_URL}/login">${process.env.APP_URL}/login</a></p>`);
+  await logEvent("team:added", "ok", email);
+  redirect("/admin/team?added=1");
+}
+
+export async function removeStaff(id) {
+  const me = await requireAdmin();
+  const u = await prisma.user.findUnique({ where: { id }, include: { affiliate: true } });
+  if (!u || u.id === me.id || u.email === process.env.ADMIN_EMAIL?.toLowerCase()) redirect("/admin/team?error=self");
+  if (u.affiliate) await prisma.user.update({ where: { id }, data: { role: "AFFILIATE", passwordHash: null } });
+  else await prisma.user.delete({ where: { id } });
+  await logEvent("team:removed", "ok", u.email);
+  redirect("/admin/team");
 }

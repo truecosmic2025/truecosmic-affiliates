@@ -34,6 +34,12 @@ See **FEATURES.md** for the full AffiliateWP feature comparison. Highlights:
 | Emails | Sent through WordPress `wp_mail` (your existing SMTP) |
 | CRM | FluentCRM contacts, tags, list and custom fields; referred customers tagged |
 
+## Programme rules
+
+Defaults follow truecosmic.com/academy/affiliate: 35% commission, minimum payout 50, new customers only,
+30-day clearing (refund window), one payout run a month (day 1). Disputes go to the accounts contact set in
+Settings → Payout rules (Franklin). Promotions (e.g. coaching at 10%) are on the Commission rules page.
+
 ## Plugins this replaces
 
 AffiliateWP plus its Pro add-ons: Lifetime Commissions, Recurring Referrals, Tiered Rates, Multi-Tier Commissions,

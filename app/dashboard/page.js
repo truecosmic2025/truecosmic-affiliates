@@ -7,6 +7,7 @@ import { parseRange, dateWhere, series } from "@/lib/range";
 import { rateFor } from "@/lib/commission";
 import { commissionContext } from "@/lib/referrals";
 import { money, affiliateLink, date } from "@/lib/format";
+import { nextPayoutDate } from "@/lib/payouts";
 import { Stat, PageHeader, BarChart, Badge, Empty } from "@/components/ui";
 import RangePicker from "@/components/RangePicker";
 import CopyField from "@/components/CopyField";
@@ -46,7 +47,7 @@ export default async function Dashboard({ searchParams }) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label={`Earned (${range.label})`} value={m(period.earned)} hint={`${period.referrals} referrals`} />
-        <Stat label="Waiting to be paid" value={m(all.unpaid)} hint={all.pending ? `${m(all.pending)} pending approval · paid at ${m(s.minimumPayout)}` : `Paid when you reach ${m(s.minimumPayout)}`} />
+        <Stat label={`Next payout · ${date(nextPayoutDate(s))}`} value={m(all.payable)} hint={all.payable >= s.minimumPayout ? `Cleared and ready${all.clearing ? ` · ${m(all.clearing)} still clearing` : ""}` : `Paid once you reach ${m(s.minimumPayout)}${all.clearing ? ` · ${m(all.clearing)} still clearing` : ""}`} />
         <Stat label="Paid to you" value={m(all.paid)} hint="All time" />
         <Stat label={`Clicks (${range.label})`} value={period.visits} hint={`${period.conversionRate.toFixed(1)}% became sales`} />
       </div>

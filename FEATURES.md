@@ -103,3 +103,17 @@ coaching, Stripe + PayPal). ✅ = built and covered by the automated tests. ➖ 
 | Mailing-list / CRM | ✅ FluentCRM tags, list, custom fields |
 | Other e-commerce plugins (EDD, MemberPress, LearnDash checkout…) | ➖ Not used by truecosmic.com; can be added to the connector plugin if needed |
 | Multi-currency commissions | ➖ The store sells in one currency |
+
+## TrueCosmic programme rules (beyond AffiliateWP)
+Based on truecosmic.com/academy/affiliate. Every value can be changed in Settings.
+
+| Rule | Here |
+| --- | --- |
+| 35% default commission | ✅ Default rate (adjustable) |
+| Up to 50% "in some cases" / 10% on coaching | ✅ Promotions: time-limited rates by product, category or whole store, optionally for chosen groups |
+| Minimum payout 50 | ✅ Adjustable |
+| Commission on new customers | ✅ "New customers only" (lifetime commissions and renewals excepted) |
+| 30-day refund window, paid after the sale clears | ✅ Clearing period: commissions are payable N days after the sale |
+| Monthly payout run, no instant payouts | ✅ Payout day of the month; affiliates see their next payout date and cleared balance |
+| Disputes | ✅ Affiliates flag a referral or payout, or report a missing sale; emailed to the accounts agent (Franklin); threaded replies, statuses, and one-click commission correction from the dispute |
+| Staff access | ✅ Team page: add staff (e.g. the accounts agent) who sign in by email link |

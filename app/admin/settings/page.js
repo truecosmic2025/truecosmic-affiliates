@@ -33,7 +33,7 @@ export default async function Settings({ searchParams }) {
   return (
     <>
       <PageHeader title="Settings">
-        <div className="flex flex-wrap gap-1 text-xs">{[["general", "General"], ["tracking", "Tracking"], ["commissions", "Commissions"], ["advanced", "Lifetime & network"], ["registration", "Registration"], ["coupons", "Coupons & payouts"], ["area", "Affiliate area"], ["crm", "FluentCRM"]].map(([id, l]) => <a key={id} href={`#${id}`} className="rounded-full bg-white px-3 py-1 ring-1 ring-slate-200">{l}</a>)}</div>
+        <div className="flex flex-wrap gap-1 text-xs">{[["general", "General"], ["payouts", "Payout rules"], ["tracking", "Tracking"], ["commissions", "Commissions"], ["advanced", "Lifetime & network"], ["registration", "Registration"], ["coupons", "Coupons & payouts"], ["area", "Affiliate area"], ["crm", "FluentCRM"]].map(([id, l]) => <a key={id} href={`#${id}`} className="rounded-full bg-white px-3 py-1 ring-1 ring-slate-200">{l}</a>)}</div>
       </PageHeader>
       {searchParams.saved && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Settings saved.</p>}
       {searchParams.crm && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Pushed {searchParams.crm} affiliates to FluentCRM. Check the activity log for any errors.</p>}
@@ -42,7 +42,16 @@ export default async function Settings({ searchParams }) {
           <div><label className="label">Programme name</label><input name="siteName" defaultValue={s.siteName} className="input" /></div>
           <div><label className="label">Academy URL (default link target)</label><input name="academyUrl" defaultValue={s.academyUrl} className="input" /></div>
           <div><label className="label">Currency</label><select name="currency" defaultValue={s.currency} className="input"><option>GBP</option><option>USD</option><option>EUR</option><option>AUD</option><option>CAD</option></select></div>
-          <div><label className="label">Minimum payout</label><input name="minimumPayout" type="number" step="0.01" defaultValue={s.minimumPayout} className="input" /></div>
+        </Section>
+
+        <Section id="payouts" title="Payout rules and disputes">
+          <div><label className="label">Minimum payout</label><input name="minimumPayout" type="number" step="0.01" min="0" defaultValue={s.minimumPayout} className="input" /></div>
+          <div><label className="label">Payout run: day of the month</label><input name="payoutDay" type="number" min="1" max="28" defaultValue={s.payoutDay} className="input" /><p className="mt-1 text-xs text-slate-400">Shown to affiliates as their next payout date. 1-28.</p></div>
+          <div><label className="label">Clearing period (days)</label><input name="holdDays" type="number" min="0" defaultValue={s.holdDays} className="input" /><p className="mt-1 text-xs text-slate-400">Commissions can't be paid until the refund window has passed. 0 = immediately.</p></div>
+          <div />
+          <div className="sm:col-span-2"><Toggle name="newCustomersOnly" checked={s.newCustomersOnly} label="Pay commission on new customers only" hint="A referred customer's first purchase earns commission; repeat buyers don't (unless lifetime commissions are on, or it's a subscription renewal)." /></div>
+          <div><label className="label">Accounts contact name</label><input name="accountsName" defaultValue={s.accountsName} className="input" /></div>
+          <div><label className="label">Accounts email (receives disputes)</label><input name="accountsEmail" type="email" defaultValue={s.accountsEmail} placeholder={process.env.ADMIN_EMAIL} className="input" /><p className="mt-1 text-xs text-slate-400">Blank = sent to the admin email.</p></div>
         </Section>
 
         <Section id="tracking" title="Tracking">

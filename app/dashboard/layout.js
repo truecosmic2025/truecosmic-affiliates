@@ -27,6 +27,7 @@ export default async function DashLayout({ children }) {
     ...(s.multiTier ? [{ href: "/dashboard/network", label: "My network" }] : []),
     ...(s.directLinkTracking ? [{ href: "/dashboard/direct-links", label: "Direct links" }] : []),
     ...(s.showLeaderboard ? [{ href: "/dashboard/leaderboard", label: "Leaderboard" }] : []),
+    { href: "/dashboard/disputes", label: "Disputes & queries" },
     { href: "/dashboard/account", label: "Account" },
     ...(user.role === "ADMIN" ? [{ href: "/admin", label: "← Admin" }] : []),
   ];

@@ -10,13 +10,17 @@ const LABELS = {
   newReferral: ["To affiliate: new referral", "Affiliates can switch this off in their account"],
   payoutSent: ["To affiliate: payout sent", "{amount} and {method} are filled in"],
   adminNewReferral: ["To you: new referral", "Leave the subject empty to switch off"],
+  disputeToAccounts: ["To accounts: new dispute", "Sent to the accounts email in Settings. {dispute_type} {dispute_about} {dispute_message} {dispute_url} {accounts_name}"],
+  disputeAffiliateReply: ["To accounts: affiliate replied", "{dispute_message} {dispute_url}"],
+  disputeReceived: ["To affiliate: query received", "Confirmation copy of what they sent"],
+  disputeReply: ["To affiliate: reply / status update", "{dispute_status} {dispute_message} {dispute_url}"],
 };
 
 export default async function Emails({ searchParams }) {
   const s = await getSettings();
   return (
     <>
-      <PageHeader title="Email notifications" subtitle="Sent through your WordPress site's mail setup. Leave a subject empty to switch that email off. Tags: {first_name} {name} {email} {site} {link} {code} {login_url} {dashboard_url} {amount} {products} {method} {reason}" />
+      <PageHeader title="Email notifications" subtitle="Sent through your WordPress site's mail setup. Leave a subject empty to switch that email off. Tags: {first_name} {name} {email} {site} {link} {code} {login_url} {dashboard_url} {amount} {products} {method} {reason}, plus the dispute tags listed on those emails" />
       {searchParams.saved && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Saved.</p>}
       {searchParams.tested && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Test email sent to you. Check the Activity log if it doesn't arrive.</p>}
       <form action={updateEmails} className="max-w-4xl space-y-4">
