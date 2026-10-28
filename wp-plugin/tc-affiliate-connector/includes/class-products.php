@@ -84,7 +84,12 @@ class TCAFF_Products {
             $count += count($products);
             $page++;
         } while (count($products) === 50);
-        TCAFF_Client::log("synced $count products");
-        return $count;
+        $memberships = TCAFF_MemberPress::sync_all();
+        if (is_wp_error($memberships)) {
+            TCAFF_Client::log('membership sync failed: ' . $memberships->get_error_message());
+            return $memberships;
+        }
+        TCAFF_Client::log("synced $count products" . ($memberships ? " and $memberships MemberPress memberships" : ''));
+        return $count + $memberships;
     }
 }

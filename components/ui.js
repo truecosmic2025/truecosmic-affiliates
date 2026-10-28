@@ -16,6 +16,7 @@ const BADGE = {
   ebook: "bg-sky-50 text-sky-700 ring-sky-200",
   coaching: "bg-pink-50 text-pink-700 ring-pink-200",
   event: "bg-amber-50 text-amber-700 ring-amber-200",
+  membership: "bg-teal-50 text-teal-700 ring-teal-200",
   other: "bg-slate-100 text-slate-600 ring-slate-200",
 };
 

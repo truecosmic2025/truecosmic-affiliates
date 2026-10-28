@@ -37,3 +37,7 @@ test("ticket product types are classed as events", () => {
   assert.equal(productKind([], "Anything", "event_ticket"), "event");
   assert.equal(productKind(["Courses"], "Masterclass", "simple"), "course");
 });
+
+test("MemberPress memberships are their own product type", () => {
+  assert.equal(productKind(["Memberships"], "Premium Membership", "membership"), "membership");
+});

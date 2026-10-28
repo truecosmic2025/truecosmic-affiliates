@@ -98,7 +98,7 @@ model Product {
   id                String                 @id @default(cuid())
   wcId              Int                    @unique
   name              String
-  kind              String                 @default("other") // course | ebook | coaching | event | other
+  kind              String                 @default("other") // course | ebook | coaching | event | membership | other
   wcType            String? // WooCommerce product type, e.g. simple, subscription, event_ticket
   coach             String? // event host / coach whose deal sets the affiliate rate
   price             Decimal                @default(0) @db.Decimal(10, 2)

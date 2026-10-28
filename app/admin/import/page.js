@@ -19,7 +19,7 @@ export default async function ImportPage({ searchParams }) {
       </ol>
       <div className="grid gap-6 xl:grid-cols-2">
         <ImportForm type="affiliates" title="Step 1 · Affiliates CSV" help="Uses affiliate ID, email, name, username, payment email, rate, rate type and status." />
-        <ImportForm type="referrals" title="Step 2 · Referrals CSV" help="Uses affiliate ID or email, amount, currency, reference (order), description, status and date. Paid/unpaid history is preserved." />
+        <ImportForm type="referrals" title="Step 2 · Referrals CSV" help="Uses affiliate ID or email, amount, currency, reference (order or MemberPress transaction), context (woocommerce / memberpress), description, status and date. Paid/unpaid history is preserved; failed referrals are kept as rejected." />
       </div>
       <div className="card mt-6 flex flex-wrap items-center justify-between gap-4 p-6">
         <div><div className="font-medium">Step 3 · Invite imported affiliates</div><p className="muted">{imported} imported affiliates. Active ones get an email explaining the new dashboard and how to sign in.</p></div>

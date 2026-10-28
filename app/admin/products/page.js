@@ -46,7 +46,7 @@ export default async function Products({ searchParams }) {
       {searchParams.synced && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">WordPress sent {searchParams.synced} products.</p>}
       {searchParams.syncError && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">Couldn't reach the WordPress connector. Check WP_SITE_URL and the shared secret (see Activity log).</p>}
       {searchParams.bulk && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Updated {searchParams.bulk} products.</p>}
-      <Tabs active={kind || "all"} items={[{ key: "all", label: "All", href: "/admin/products" }, ...["course", "ebook", "coaching", "event", "other"].map((k) => ({ key: k, label: k[0].toUpperCase() + k.slice(1), href: `/admin/products?kind=${k}` }))]} />
+      <Tabs active={kind || "all"} items={[{ key: "all", label: "All", href: "/admin/products" }, ...["course", "ebook", "coaching", "event", "membership", "other"].map((k) => ({ key: k, label: k[0].toUpperCase() + k.slice(1), href: `/admin/products?kind=${k}` }))]} />
       {kind === "event" && (
         <div className="mb-4 rounded-lg bg-white p-4 text-sm ring-1 ring-slate-200">
           Event commission is agreed with each coach. Tick events below, choose the coach and click <strong>Assign coach</strong>; set the coach's rate under <Link href="/admin/rules#coaches" className="text-cosmic-600">Commission rules → Coach deals</Link>. A rate on an individual event overrides the coach deal.
@@ -88,7 +88,7 @@ export default async function Products({ searchParams }) {
                 <td>
                   <form action={updateProduct.bind(null, p.id)} className="flex flex-wrap items-center gap-2">
                     <label className="flex items-center gap-1 text-xs"><input type="checkbox" name="commissionEnabled" defaultChecked={p.commissionEnabled} /> Earns</label>
-                    <select name="kind" defaultValue={p.kind} className="input w-24 py-1 text-xs"><option>course</option><option>ebook</option><option>coaching</option><option>event</option><option>other</option></select>
+                    <select name="kind" defaultValue={p.kind} className="input w-24 py-1 text-xs"><option>course</option><option>ebook</option><option>coaching</option><option>event</option><option>membership</option><option>other</option></select>
                     <input name="coach" list="coaches" defaultValue={p.coach || ""} placeholder="Coach" className="input w-28 py-1 text-xs" />
                     <select name="rateType" defaultValue={p.rateType || ""} className="input w-24 py-1 text-xs"><option value="">No own rate</option><option value="PERCENTAGE">%</option><option value="FLAT">Flat $</option></select>
                     <input name="rate" type="number" step="0.01" min="0" defaultValue={p.rate != null ? Number(p.rate) : ""} className="input w-20 py-1 text-xs" />

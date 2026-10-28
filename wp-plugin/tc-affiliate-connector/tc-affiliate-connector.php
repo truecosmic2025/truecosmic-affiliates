@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: TrueCosmic Affiliate Connector
- * Description: Connects WooCommerce and FluentCRM to the TrueCosmic Affiliates app: tracks referral links, reports orders and refunds, keeps products in sync, and lets the app update FluentCRM contacts.
- * Version: 1.3.4
+ * Description: Connects WooCommerce, MemberPress and FluentCRM to the TrueCosmic Affiliates app: tracks referral links, reports orders and refunds, keeps products in sync, and lets the app update FluentCRM contacts.
+ * Version: 1.4.0
  * Author: TrueCosmic
  * Requires PHP: 7.4
  * WC requires at least: 6.0
@@ -10,13 +10,14 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('TCAFF_VERSION', '1.3.4');
+define('TCAFF_VERSION', '1.4.0');
 define('TCAFF_FILE', __FILE__);
 
 require_once __DIR__ . '/includes/class-client.php';
 require_once __DIR__ . '/includes/class-tracking.php';
 require_once __DIR__ . '/includes/class-orders.php';
 require_once __DIR__ . '/includes/class-products.php';
+require_once __DIR__ . '/includes/class-memberpress.php';
 require_once __DIR__ . '/includes/class-rest.php';
 require_once __DIR__ . '/includes/class-admin.php';
 
@@ -34,6 +35,7 @@ add_action('plugins_loaded', function () {
         TCAFF_Tracking::init();
         TCAFF_Orders::init();
         TCAFF_Products::init();
+        TCAFF_MemberPress::init();
     } else {
         wp_clear_scheduled_hook('tcaff_daily_product_sync');
         wp_clear_scheduled_hook('tcaff_refresh_config');

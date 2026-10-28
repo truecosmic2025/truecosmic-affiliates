@@ -90,7 +90,7 @@ class TCAFF_Admin {
             if (TCAFF_Client::is_shop()) $tools['sync'] = 'Sync all products now';
             if (function_exists('FluentCrmApi')) $tools['crm_fields'] = 'Create FluentCRM affiliate fields';
             ?>
-            <p class="description">This site: role <strong><?php echo TCAFF_Client::is_shop() ? 'Shop' : 'CRM only'; ?></strong> · WooCommerce <?php echo class_exists('WooCommerce') ? 'active' : 'not active'; ?> · FluentCRM <?php echo function_exists('FluentCrmApi') ? 'active (receives affiliate contacts and tags)' : 'not active'; ?></p>
+            <p class="description">This site: role <strong><?php echo TCAFF_Client::is_shop() ? 'Shop' : 'CRM only'; ?></strong> · WooCommerce <?php echo class_exists('WooCommerce') ? 'active' : 'not active'; ?> · MemberPress <?php echo TCAFF_MemberPress::active() ? (TCAFF_Client::is_shop() ? 'active (memberships tracked)' : 'active (not tracked: CRM only)') : 'not active'; ?> · FluentCRM <?php echo function_exists('FluentCrmApi') ? 'active (receives affiliate contacts and tags)' : 'not active'; ?></p>
             <?php foreach ($tools as $key => $label) : ?>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-block;margin-right:8px">
                     <?php wp_nonce_field('tcaff_action'); ?>

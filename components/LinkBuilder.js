@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import CopyField from "./CopyField";
 
-const KINDS = { all: "All", course: "Courses", ebook: "eBooks", coaching: "Coaching", event: "Events", other: "Other" };
+const KINDS = { all: "All", course: "Courses", ebook: "eBooks", coaching: "Coaching", event: "Events", membership: "Memberships", other: "Other" };
 
 export default function LinkBuilder({ products, code, referralVar, shortBase, academyUrl, money }) {
   const [kind, setKind] = useState("all");

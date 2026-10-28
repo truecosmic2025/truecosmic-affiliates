@@ -24,7 +24,8 @@
     visit: params.get("tc_visit") || "",
     url: location.href,
     referrer: document.referrer || "",
-    campaign: params.get("utm_campaign") || params.get("c") || "",
+    // ?campaign= is AffiliateWP's campaign tag, which existing affiliate links use
+    campaign: params.get("utm_campaign") || params.get("campaign") || params.get("c") || "",
     ppc: ppc ? "1" : "",
   });
   fetch(TCAFF.ajax, { method: "POST", credentials: "same-origin", body: body }).catch(function () {});
