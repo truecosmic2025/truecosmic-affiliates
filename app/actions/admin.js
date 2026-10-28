@@ -607,3 +607,11 @@ export async function removeStaff(id) {
   await logEvent("team:removed", "ok", u.email);
   redirect("/admin/team");
 }
+
+// Switch commission on or off for every product of one type (e.g. all event tickets)
+export async function setKindCommission(kind, enabled) {
+  await requireAdmin();
+  const r = await prisma.product.updateMany({ where: { kind, deleted: false }, data: { commissionEnabled: enabled } });
+  await logEvent("products:bulk-commission", "ok", `${kind}: commission ${enabled ? "on" : "off"} for ${r.count} products`);
+  redirect(`/admin/products?kind=${kind}&bulk=${r.count}`);
+}
