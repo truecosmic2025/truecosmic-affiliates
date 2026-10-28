@@ -94,7 +94,7 @@ export default async function Settings({ searchParams }) {
           <div><label className="label">Lifetime rate (optional)</label><div className="flex gap-2"><RateTypeSelect name="lifetimeRateType" value={s.lifetimeRateType} /><input name="lifetimeRate" type="number" step="0.01" defaultValue={s.lifetimeRate ?? ""} className="input" /></div></div>
           <div />
           <div className="space-y-3 sm:col-span-2">
-            <Toggle name="recurringReferrals" checked={s.recurringReferrals} label="Recurring referrals (subscriptions)" hint="Renewals from WooCommerce Subscriptions pay the affiliate who referred the first order." />
+            <Toggle name="recurringReferrals" checked={s.recurringReferrals} label="Recurring referrals (subscriptions)" hint="Renewals (WooCommerce Subscriptions and MemberPress) pay the affiliate who referred the first payment. Off: only the first payment earns commission." />
           </div>
           <div><label className="label">Recurring rate (optional)</label><div className="flex gap-2"><RateTypeSelect name="recurringRateType" value={s.recurringRateType} /><input name="recurringRate" type="number" step="0.01" defaultValue={s.recurringRate ?? ""} className="input" /></div></div>
           <div />
