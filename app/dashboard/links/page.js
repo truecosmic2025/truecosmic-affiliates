@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireAffiliate } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
-import { rateFor } from "@/lib/commission";
+import { rateFor, hasAgreedRate } from "@/lib/commission";
 import { commissionContext } from "@/lib/referrals";
 import { money } from "@/lib/format";
 import { PageHeader } from "@/components/ui";
@@ -13,7 +13,7 @@ export default async function Links() {
   const products = await prisma.product.findMany({ where: { deleted: false, status: "publish", commissionEnabled: true }, orderBy: { createdAt: "desc" } });
   const ctx = await commissionContext(affiliate, "sale");
   const prices = {};
-  const list = products.map((p) => {
+  const list = products.filter((p) => hasAgreedRate(p, rateFor({ product: p, affiliate, settings: s, ctx }).via, s)).map((p) => {
     const { type, rate, promotion } = rateFor({ product: p, affiliate, settings: s, ctx });
     prices[p.id] = money(p.price, s.currency);
     const earn = type === "FLAT" ? money(rate, s.currency) : `${rate}% (${money((Number(p.price) * rate) / 100, s.currency)})`;

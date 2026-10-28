@@ -3,12 +3,18 @@ import { getSettings } from "@/lib/settings";
 import { money, date } from "@/lib/format";
 import { PageHeader, Empty } from "@/components/ui";
 import RateFields from "@/components/RateFields";
-import { savePromotion, togglePromotion, deletePromotion, saveGroup, deleteGroup, saveCategoryRate, deleteCategoryRate, saveTier, deleteTier, saveBonus, toggleBonus } from "@/app/actions/admin";
+import { saveCoachDeal, deleteCoachDeal, savePromotion, togglePromotion, deletePromotion, saveGroup, deleteGroup, saveCategoryRate, deleteCategoryRate, saveTier, deleteTier, saveBonus, toggleBonus } from "@/app/actions/admin";
 
 export default async function Rules({ searchParams }) {
   const s = await getSettings();
   const m = (v) => money(v, s.currency);
   const rateLabel = (t, r) => (r == null ? "default" : t === "FLAT" ? m(r) : `${Number(r)}%`);
+  const [deals, coachCounts] = await Promise.all([
+    prisma.coachDeal.findMany({ orderBy: { coach: "asc" } }),
+    prisma.product.groupBy({ by: ["coach"], where: { coach: { not: null }, deleted: false }, _count: true }),
+  ]);
+  const eventsFor = Object.fromEntries(coachCounts.map((c) => [c.coach.toLowerCase(), c._count]));
+  const coachesWithoutDeal = coachCounts.filter((c) => !deals.some((d) => d.coach.toLowerCase() === c.coach.toLowerCase()));
   const [groups, cats, tiers, bonuses, products, promos, productList] = await Promise.all([
     prisma.affiliateGroup.findMany({ include: { _count: { select: { affiliates: true } } }, orderBy: { name: "asc" } }),
     prisma.categoryRate.findMany({ orderBy: { category: "asc" } }),
@@ -26,7 +32,29 @@ export default async function Rules({ searchParams }) {
 
   return (
     <>
-      <PageHeader title="Commission rules" subtitle="Which rate applies: affiliate's product rate → running promotion → product rate → category rate → affiliate rate → group rate → tier rate → lifetime/recurring rate → default" />
+      <PageHeader title="Commission rules" subtitle="Which rate applies: affiliate's product rate → running promotion → product rate → coach deal → category rate → affiliate rate → group rate → tier rate → lifetime/recurring rate → default" />
+      <section id="coaches" className="card mb-6 scroll-mt-6">
+        <div className="px-5 pt-5 font-medium">Coach deals (events)</div>
+        <p className="muted px-5">The affiliate commission you've agreed with each coach, applied to all events assigned to them on the Products page. An individual event's own rate or a promotion overrides it. Events with no deal and no own rate pay affiliates nothing.</p>
+        {searchParams?.saved === "coach" && <p className="mx-5 mt-3 rounded-lg bg-emerald-50 p-2 text-sm text-emerald-700">Coach deal saved.</p>}
+        {searchParams?.error === "coach" && <p className="mx-5 mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-700">A coach deal needs a coach name and a rate.</p>}
+        <table className="table mt-3"><thead><tr><th>Coach</th><th>Affiliate commission</th><th>Products</th><th>Notes</th><th>Updated</th><th></th></tr></thead>
+          <tbody>{deals.map((d) => (
+            <tr key={d.id}><td className="font-medium"><a href={`/admin/products?coach=${encodeURIComponent(d.coach)}`} className="text-cosmic-700">{d.coach}</a></td><td>{rateLabel(d.rateType, d.rate)}{d.rateType === "FLAT" ? " per ticket" : ""}</td>
+              <td>{eventsFor[d.coach.toLowerCase()] || 0}</td><td className="max-w-xs text-xs text-slate-500">{d.notes}</td><td className="whitespace-nowrap text-xs">{date(d.updatedAt)}</td>
+              <td><form action={deleteCoachDeal.bind(null, d.id)}><button className="btn-danger btn-sm">Delete</button></form></td></tr>
+          ))}</tbody>
+        </table>
+        {!deals.length && <Empty>No coach deals yet</Empty>}
+        {coachesWithoutDeal.length > 0 && <p className="px-5 pt-2 text-xs text-amber-700">No deal yet for: {coachesWithoutDeal.map((c) => `${c.coach} (${c._count})`).join(", ")}</p>}
+        <form action={saveCoachDeal} className="grid gap-3 border-t border-slate-100 p-5 md:grid-cols-2">
+          <input name="coach" required list="coach-names" placeholder="Coach name (same spelling as on Products)" className="input" />
+          <datalist id="coach-names">{coachCounts.map((c) => <option key={c.coach} value={c.coach} />)}</datalist>
+          <RateFields hint="Percentage of the ticket price, or a flat amount per ticket" />
+          <input name="notes" placeholder="Notes, e.g. agreed by email 28 Oct, London retreat only" className="input md:col-span-2" />
+          <div className="md:col-span-2"><button className="btn-primary">Save coach deal</button> <span className="text-xs text-slate-400">Saving a coach that already has a deal updates it.</span></div>
+        </form>
+      </section>
       {searchParams?.error === "promo" && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">A promotion needs a rate.</p>}
       <section className="card mb-6">
         <div className="px-5 pt-5 font-medium">Promotions</div>

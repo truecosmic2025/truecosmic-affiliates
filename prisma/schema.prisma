@@ -99,6 +99,7 @@ model Product {
   name              String
   kind              String                 @default("other") // course | ebook | coaching | event | other
   wcType            String? // WooCommerce product type, e.g. simple, subscription, event_ticket
+  coach             String? // event host / coach whose deal sets the affiliate rate
   price             Decimal                @default(0) @db.Decimal(10, 2)
   permalink         String?
   status            String                 @default("publish")
@@ -407,4 +408,15 @@ model DisputeMessage {
   authorName String?
   body       String
   createdAt  DateTime @default(now())
+}
+
+// Affiliate commission agreed with a coach, applied to all of their events (case by case)
+model CoachDeal {
+  id        String   @id @default(cuid())
+  coach     String   @unique
+  rateType  RateType
+  rate      Decimal  @db.Decimal(10, 2)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

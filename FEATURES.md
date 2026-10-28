@@ -111,6 +111,7 @@ Based on truecosmic.com/academy/affiliate. Every value can be changed in Setting
 | --- | --- |
 | Commissions, balances, minimum payout and emails in USD | ✅ Store sells in GBP: each sale is converted at the European Central Bank rate for the sale date and locked. The GBP amount, the rate, its date and source, and the USD amount are stored on every commission |
 | 35% default commission | ✅ Default rate (adjustable) |
+| Event commission negotiated with each coach | ✅ Coach deals (% or flat per ticket) apply to all of a coach's events; an event's own rate or a promotion overrides; events pay nothing until a rate is agreed (setting) and stay hidden from affiliates until then |
 | Up to 50% "in some cases" / 10% on coaching | ✅ Promotions: time-limited rates by product, category or whole store, optionally for chosen groups |
 | Minimum payout 50 | ✅ Adjustable |
 | Commission on new customers | ✅ Optional "new customers only" setting, off by default (not part of the published rules) |

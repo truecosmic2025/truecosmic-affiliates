@@ -79,6 +79,7 @@ export default async function Settings({ searchParams }) {
             <Toggle name="newProductsEarnCommission" checked={s.newProductsEarnCommission} label="New academy products earn commission automatically" />
             <Toggle name="includeShipping" checked={s.includeShipping} label="Include shipping in commission" />
             <Toggle name="includeTax" checked={s.includeTax} label="Include tax in commission" />
+            <Toggle name="eventsNeedAgreedRate" checked={s.eventsNeedAgreedRate} label="Events earn only once a rate is agreed" hint="Event tickets never fall back to the default rate: they need a coach deal, their own rate, a promotion or a category rate (Commission rules → Coach deals)." />
             <Toggle name="ignoreZeroReferrals" checked={s.ignoreZeroReferrals} label="Ignore zero-value referrals" hint="e.g. free lead-magnet ebooks or 100%-off coupons" />
             <Toggle name="referralsStartPending" checked={s.referralsStartPending} label="Hold new commissions for approval" hint="Useful with a refund window; approve them in Referrals before paying." />
             <Toggle name="allowSelfReferral" checked={s.allowSelfReferral} label="Allow affiliates to earn on their own purchases" />

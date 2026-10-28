@@ -265,7 +265,7 @@ export async function updateProduct(id, f) {
   await requireAdmin();
   await prisma.product.update({
     where: { id },
-    data: { commissionEnabled: f.get("commissionEnabled") === "on", kind: str(f, "kind") || "other", ...rateFields(f) },
+    data: { commissionEnabled: f.get("commissionEnabled") === "on", kind: str(f, "kind") || "other", coach: str(f, "coach"), ...rateFields(f) },
   });
   revalidatePath("/admin/products");
 }
@@ -399,6 +399,7 @@ export async function updateSettings(f) {
     includeShipping: bool("includeShipping"),
     includeTax: bool("includeTax"),
     ignoreZeroReferrals: bool("ignoreZeroReferrals"),
+    eventsNeedAgreedRate: bool("eventsNeedAgreedRate"),
     lifetimeCommissions: bool("lifetimeCommissions"),
     lifetimeRateType: str(f, "lifetimeRateType") || "",
     lifetimeRate: str(f, "lifetimeRate") == null ? null : n("lifetimeRate"),
@@ -614,4 +615,32 @@ export async function setKindCommission(kind, enabled) {
   const r = await prisma.product.updateMany({ where: { kind, deleted: false }, data: { commissionEnabled: enabled } });
   await logEvent("products:bulk-commission", "ok", `${kind}: commission ${enabled ? "on" : "off"} for ${r.count} products`);
   redirect(`/admin/products?kind=${kind}&bulk=${r.count}`);
+}
+
+// ---------- Coaches (event commission agreed case by case) ----------
+export async function assignCoach(f) {
+  await requireAdmin();
+  const ids = f.getAll("ids").map(String);
+  const coach = str(f, "coach");
+  if (!ids.length) redirect("/admin/products?kind=event");
+  const r = await prisma.product.updateMany({ where: { id: { in: ids } }, data: { coach } });
+  await logEvent("products:coach", "ok", `${coach || "(none)"} assigned to ${r.count} products`);
+  redirect(`/admin/products?kind=event&bulk=${r.count}`);
+}
+
+export async function saveCoachDeal(f) {
+  await requireAdmin();
+  const coach = str(f, "coach");
+  const { rate, rateType } = rateFields(f);
+  if (!coach || rate == null) redirect("/admin/rules?error=coach#coaches");
+  await prisma.coachDeal.upsert({ where: { coach }, create: { coach, rate, rateType, notes: str(f, "notes") }, update: { rate, rateType, notes: str(f, "notes") } });
+  await logEvent("coach-deal:saved", "ok", `${coach}: ${rateType === "FLAT" ? "$" : ""}${rate}${rateType === "FLAT" ? " flat" : "%"}`);
+  redirect("/admin/rules?saved=coach#coaches");
+}
+
+export async function deleteCoachDeal(id) {
+  await requireAdmin();
+  const d = await prisma.coachDeal.delete({ where: { id } });
+  await logEvent("coach-deal:deleted", "ok", d.coach);
+  revalidatePath("/admin/rules");
 }
