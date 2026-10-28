@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function Shell({ nav, user, children, title = "Affiliates" }) {
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="bg-cosmic-900 text-cosmic-100 lg:fixed lg:inset-y-0 lg:w-60">
+      <aside className="bg-cosmic-900 text-cosmic-100 lg:fixed lg:inset-y-0 lg:w-60 lg:overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-5 lg:block">
           <div>
             <div className="text-[11px] uppercase tracking-[0.25em] text-cosmic-200/70">TrueCosmic</div>
@@ -18,7 +18,7 @@ export default function Shell({ nav, user, children, title = "Affiliates" }) {
           ))}
           <form action="/logout" method="post" className="lg:hidden"><button className="whitespace-nowrap rounded-lg px-3 py-2 text-sm hover:bg-white/10">Log out</button></form>
         </nav>
-        <div className="hidden px-5 py-4 text-xs text-cosmic-200/70 lg:absolute lg:bottom-0 lg:block">
+        <div className="hidden px-5 py-4 text-xs text-cosmic-200/70 lg:block">
           <div className="mb-2 truncate">{user.email}</div>
           <form action="/logout" method="post"><button className="underline hover:text-white">Log out</button></form>
         </div>

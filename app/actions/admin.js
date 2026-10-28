@@ -1,47 +1,46 @@
 "use server";
+import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma, logEvent } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
-import { saveSettings, getSettings } from "@/lib/settings";
-import { setAffiliateStatus, uniqueCode } from "@/lib/affiliates";
+import { saveSettings, getSettings, DEFAULT_SETTINGS } from "@/lib/settings";
+import { setAffiliateStatus, createAffiliateCoupon } from "@/lib/affiliates";
+import { registerAffiliate, RegistrationError } from "@/lib/registration";
 import { syncAffiliateToCrm } from "@/lib/crm";
 import { importAffiliates, importReferrals } from "@/lib/importer";
-import { callWordPress } from "@/lib/wp";
-import { slugify } from "@/lib/format";
+import { callWordPress, sendMail } from "@/lib/wp";
+import { sendTemplate, fireWebhooks, referralJson } from "@/lib/notify";
+import { sendPayPalPayouts } from "@/lib/paypal";
+import { slugify, money } from "@/lib/format";
+import { domainOf } from "@/lib/visits";
 
 const str = (f, k) => {
   const v = f.get(k);
   return v == null || String(v).trim() === "" ? null : String(v).trim();
 };
-const rateFields = (f) => {
-  const rate = str(f, "rate");
-  const rateType = str(f, "rateType");
+const rateFields = (f, prefix = "") => {
+  const rate = str(f, prefix + "rate");
+  const rateType = str(f, prefix + "rateType");
   return rate && rateType ? { rate: Number(rate), rateType } : { rate: null, rateType: null };
 };
 
 // ---------- Affiliates ----------
 export async function createAffiliate(f) {
   await requireAdmin();
-  const email = str(f, "email")?.toLowerCase();
-  if (!email) redirect("/admin/affiliates/new?error=email");
-  if (await prisma.affiliate.findUnique({ where: { email } })) redirect("/admin/affiliates/new?error=exists");
-  const firstName = str(f, "firstName");
-  const user = await prisma.user.upsert({ where: { email }, create: { email, name: firstName }, update: {} });
-  const a = await prisma.affiliate.create({
-    data: {
-      email,
-      firstName,
-      lastName: str(f, "lastName"),
-      paymentEmail: str(f, "paymentEmail") || email,
-      code: await uniqueCode(str(f, "code") || firstName || email.split("@")[0]),
-      status: str(f, "status") || "ACTIVE",
-      userId: user.id,
-      ...rateFields(f),
-    },
-  });
-  await logEvent("affiliate:created", "ok", email);
-  await syncAffiliateToCrm(a.id);
+  let a;
+  try {
+    a = await registerAffiliate(
+      {
+        email: str(f, "email"), firstName: str(f, "firstName"), lastName: str(f, "lastName"), paymentEmail: str(f, "paymentEmail"),
+        code: str(f, "code"), groupId: str(f, "groupId"), parentRef: str(f, "parentRef"), ...rateFields(f),
+      },
+      { byAdmin: true, status: str(f, "status") || "ACTIVE" }
+    );
+  } catch (e) {
+    if (e instanceof RegistrationError) redirect(`/admin/affiliates/new?error=${e.message}`);
+    throw e;
+  }
   redirect(`/admin/affiliates/${a.id}`);
 }
 
@@ -50,6 +49,8 @@ export async function updateAffiliate(id, f) {
   const code = slugify(str(f, "code"));
   const clash = code && (await prisma.affiliate.findFirst({ where: { code, NOT: { id } } }));
   if (clash) redirect(`/admin/affiliates/${id}?error=code`);
+  const parentId = str(f, "parentId");
+  if (parentId === id) redirect(`/admin/affiliates/${id}?error=parent`);
   const before = await prisma.affiliate.findUnique({ where: { id } });
   await prisma.affiliate.update({
     where: { id },
@@ -59,13 +60,16 @@ export async function updateAffiliate(id, f) {
       paymentEmail: str(f, "paymentEmail"),
       website: str(f, "website"),
       notes: str(f, "notes"),
+      groupId: str(f, "groupId"),
+      parentId,
+      emailOnReferral: f.get("emailOnReferral") === "on",
       coupons: (str(f, "coupons") || "").split(",").map((c) => c.trim()).filter(Boolean),
       ...(code ? { code } : {}),
       ...rateFields(f),
     },
   });
   const status = str(f, "status");
-  if (status && status !== before.status) await setAffiliateStatus(id, status);
+  if (status && status !== before.status) await setAffiliateStatus(id, status, { reason: str(f, "rejectionReason") });
   else await syncAffiliateToCrm(id);
   revalidatePath(`/admin/affiliates/${id}`);
   redirect(`/admin/affiliates/${id}?saved=1`);
@@ -78,11 +82,85 @@ export async function changeAffiliateStatus(id, status) {
   revalidatePath(`/admin/affiliates/${id}`);
 }
 
+export async function rejectAffiliate(id, f) {
+  await requireAdmin();
+  await setAffiliateStatus(id, "REJECTED", { reason: str(f, "reason") });
+  redirect(`/admin/affiliates/${id}`);
+}
+
+export async function bulkAffiliates(f) {
+  await requireAdmin();
+  const ids = f.getAll("ids").map(String);
+  const action = str(f, "bulk");
+  if (!ids.length || !action) redirect("/admin/affiliates");
+  if (action === "delete") await prisma.affiliate.deleteMany({ where: { id: { in: ids } } });
+  else if (action === "crm") for (const id of ids) await syncAffiliateToCrm(id);
+  else if (action.startsWith("group:")) await prisma.affiliate.updateMany({ where: { id: { in: ids } }, data: { groupId: action.slice(6) || null } });
+  else for (const id of ids) await setAffiliateStatus(id, action);
+  await logEvent("affiliates:bulk", "ok", `${action} x${ids.length}`);
+  revalidatePath("/admin/affiliates");
+  redirect(`/admin/affiliates?bulk=${ids.length}`);
+}
+
 export async function deleteAffiliate(id) {
   await requireAdmin();
   await prisma.affiliate.delete({ where: { id } });
   await logEvent("affiliate:deleted", "ok", id);
   redirect("/admin/affiliates");
+}
+
+export async function generateCoupon(id) {
+  await requireAdmin();
+  const a = await prisma.affiliate.findUnique({ where: { id } });
+  await createAffiliateCoupon(a);
+  revalidatePath(`/admin/affiliates/${id}`);
+}
+
+export async function setAffiliateProductRate(affiliateId, f) {
+  await requireAdmin();
+  const productId = str(f, "productId");
+  const { rate, rateType } = rateFields(f);
+  if (!productId) return;
+  if (rate == null) await prisma.affiliateProductRate.deleteMany({ where: { affiliateId, productId } });
+  else await prisma.affiliateProductRate.upsert({ where: { affiliateId_productId: { affiliateId, productId } }, create: { affiliateId, productId, rate, rateType }, update: { rate, rateType } });
+  revalidatePath(`/admin/affiliates/${affiliateId}`);
+}
+
+export async function removeAffiliateProductRate(id, affiliateId) {
+  await requireAdmin();
+  await prisma.affiliateProductRate.delete({ where: { id } });
+  revalidatePath(`/admin/affiliates/${affiliateId}`);
+}
+
+export async function addLandingPage(affiliateId, f) {
+  await requireAdmin();
+  let path = str(f, "path") || "";
+  try { path = new URL(path, "https://x.invalid").pathname; } catch {}
+  if (!path.endsWith("/")) path += "/";
+  if (path === "/") redirect(`/admin/affiliates/${affiliateId}?error=landing`);
+  const taken = await prisma.landingPage.findUnique({ where: { path } });
+  if (taken) redirect(`/admin/affiliates/${affiliateId}?error=landing`);
+  await prisma.landingPage.create({ data: { path, affiliateId } });
+  revalidatePath(`/admin/affiliates/${affiliateId}`);
+}
+
+export async function removeLandingPage(id, affiliateId) {
+  await requireAdmin();
+  await prisma.landingPage.delete({ where: { id } });
+  revalidatePath(`/admin/affiliates/${affiliateId}`);
+}
+
+export async function setDirectLinkStatus(id, status) {
+  await requireAdmin();
+  await prisma.directLink.update({ where: { id }, data: { status } });
+  revalidatePath("/admin/direct-links");
+}
+
+export async function addDirectLink(affiliateId, f) {
+  await requireAdmin();
+  const domain = domainOf(/^https?:/.test(str(f, "domain") || "") ? str(f, "domain") : `https://${str(f, "domain")}`);
+  if (domain && !(await prisma.directLink.findUnique({ where: { domain } }))) await prisma.directLink.create({ data: { domain, affiliateId, status: "approved" } });
+  revalidatePath(`/admin/affiliates/${affiliateId}`);
 }
 
 export async function syncAllAffiliatesToCrm() {
@@ -97,7 +175,21 @@ export async function setReferralStatus(id, status) {
   await requireAdmin();
   const r = await prisma.referral.update({ where: { id }, data: { status } });
   await logEvent("referral:status", "ok", `${id} -> ${status}`);
+  await fireWebhooks("referral.updated", referralJson(r));
   await syncAffiliateToCrm(r.affiliateId);
+  revalidatePath("/admin/referrals");
+}
+
+export async function bulkReferrals(f) {
+  await requireAdmin();
+  const ids = f.getAll("ids").map(String);
+  const status = str(f, "bulk");
+  if (ids.length && ["UNPAID", "REJECTED", "PENDING", "PAID"].includes(status)) {
+    await prisma.referral.updateMany({ where: { id: { in: ids } }, data: { status } });
+    const affs = await prisma.referral.findMany({ where: { id: { in: ids } }, distinct: ["affiliateId"], select: { affiliateId: true } });
+    for (const a of affs) await syncAffiliateToCrm(a.affiliateId);
+    await logEvent("referrals:bulk", "ok", `${status} x${ids.length}`);
+  }
   revalidatePath("/admin/referrals");
 }
 
@@ -105,17 +197,13 @@ export async function addManualReferral(f) {
   await requireAdmin();
   const affiliateId = str(f, "affiliateId");
   const s = await getSettings();
-  await prisma.referral.create({
+  const r = await prisma.referral.create({
     data: {
-      affiliateId,
-      amount: Number(str(f, "amount") || 0),
-      description: str(f, "description"),
-      orderId: str(f, "orderId"),
-      currency: s.currency,
-      status: "UNPAID",
-      source: "manual",
+      affiliateId, amount: Number(str(f, "amount") || 0), description: str(f, "description"), orderId: str(f, "orderId"),
+      currency: s.currency, status: "UNPAID", source: "manual", type: str(f, "type") || "sale",
     },
   });
+  await fireWebhooks("referral.created", referralJson(r));
   await syncAffiliateToCrm(affiliateId);
   redirect("/admin/referrals");
 }
@@ -123,23 +211,58 @@ export async function addManualReferral(f) {
 // ---------- Payouts ----------
 export async function createPayouts(f) {
   await requireAdmin();
+  const s = await getSettings();
   const ids = f.getAll("affiliateId").map(String);
   const method = str(f, "method") || "paypal";
-  const reference = str(f, "reference");
-  const created = [];
+  let reference = str(f, "reference");
+  const batch = [];
   for (const affiliateId of ids) {
     const refs = await prisma.referral.findMany({ where: { affiliateId, status: "UNPAID" } });
     if (!refs.length) continue;
-    const amount = refs.reduce((s, r) => s + Number(r.amount), 0);
+    const a = await prisma.affiliate.findUnique({ where: { id: affiliateId } });
+    batch.push({ a, refs, amount: Math.round(refs.reduce((x, r) => x + Number(r.amount), 0) * 100) / 100 });
+  }
+  if (!batch.length) redirect("/admin/payouts");
+
+  // Automatic payment through the PayPal Payouts API when credentials are configured
+  if (method === "paypal-api") {
+    try {
+      reference = await sendPayPalPayouts(batch.map((b) => ({ email: b.a.paymentEmail || b.a.email, amount: b.amount, id: b.a.code })), s);
+    } catch (e) {
+      await logEvent("payouts:paypal", "error", e.message);
+      redirect(`/admin/payouts?error=${encodeURIComponent(e.message.slice(0, 200))}`);
+    }
+  }
+  for (const { a, refs, amount } of batch) {
+    let note = null;
+    if (method === "store-credit") {
+      const code = `CREDIT-${a.code}-${Date.now().toString(36)}`.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+      try {
+        await callWordPress("coupons/create", { code, discount_type: "fixed_cart", amount, email_restriction: a.email, usage_limit: 1, affiliate_code: a.code, description: `Affiliate store credit for ${a.email}` });
+        note = `Store credit coupon ${code}`;
+      } catch (e) {
+        await logEvent("payouts:store-credit", "error", `${a.code}: ${e.message}`);
+        continue;
+      }
+    }
     const payout = await prisma.payout.create({
-      data: { affiliateId, amount, currency: refs[0].currency, method, reference, status: "PAID" },
+      data: { affiliateId: a.id, amount, currency: refs[0].currency, method, reference, notes: note, status: method === "paypal-api" ? "PROCESSING" : "PAID" },
     });
     await prisma.referral.updateMany({ where: { id: { in: refs.map((r) => r.id) } }, data: { status: "PAID", payoutId: payout.id } });
-    created.push(payout.id);
-    await syncAffiliateToCrm(affiliateId, ["Affiliate - Paid"]);
+    const methodLabel = { paypal: "PayPal", "paypal-api": "PayPal", bank: "bank transfer", "store-credit": `store credit (coupon code ${note?.split(" ").pop()})`, stripe: "Stripe", other: "our usual method" }[method] || method;
+    await sendTemplate("payoutSent", a.email, a, { amount: money(amount, refs[0].currency), method: methodLabel });
+    await fireWebhooks("payout.created", { id: payout.id, affiliate_id: a.id, amount, currency: payout.currency, method, reference });
+    await syncAffiliateToCrm(a.id, ["Affiliate - Paid"]);
   }
-  await logEvent("payouts:created", "ok", `${created.length} payouts`);
-  redirect(`/admin/payouts?created=${created.length}`);
+  await logEvent("payouts:created", "ok", `${batch.length} payouts via ${method}`);
+  redirect(`/admin/payouts?created=${batch.length}`);
+}
+
+export async function markPayoutStatus(id, status) {
+  await requireAdmin();
+  await prisma.payout.update({ where: { id }, data: { status } });
+  if (status === "FAILED") await prisma.referral.updateMany({ where: { payoutId: id }, data: { status: "UNPAID", payoutId: null } });
+  revalidatePath("/admin/payouts");
 }
 
 // ---------- Products ----------
@@ -166,11 +289,73 @@ export async function requestProductSync() {
   redirect(target);
 }
 
+// ---------- Commission rules: groups, category rates, tiers, bonuses ----------
+export async function saveGroup(f) {
+  await requireAdmin();
+  const id = str(f, "id");
+  const isDefault = f.get("isDefault") === "on";
+  if (isDefault) await prisma.affiliateGroup.updateMany({ data: { isDefault: false } });
+  const data = { name: str(f, "name") || "Group", isDefault, ...rateFields(f) };
+  if (id) await prisma.affiliateGroup.update({ where: { id }, data });
+  else await prisma.affiliateGroup.create({ data });
+  revalidatePath("/admin/rules");
+}
+
+export async function deleteGroup(id) {
+  await requireAdmin();
+  await prisma.affiliateGroup.delete({ where: { id } });
+  revalidatePath("/admin/rules");
+}
+
+export async function saveCategoryRate(f) {
+  await requireAdmin();
+  const category = str(f, "category");
+  const { rate, rateType } = rateFields(f);
+  if (!category || rate == null) return;
+  await prisma.categoryRate.upsert({ where: { category }, create: { category, rate, rateType }, update: { rate, rateType } });
+  revalidatePath("/admin/rules");
+}
+
+export async function deleteCategoryRate(id) {
+  await requireAdmin();
+  await prisma.categoryRate.delete({ where: { id } });
+  revalidatePath("/admin/rules");
+}
+
+export async function saveTier(f) {
+  await requireAdmin();
+  const { rate, rateType } = rateFields(f);
+  if (rate == null) return;
+  await prisma.rateTier.create({ data: { metric: str(f, "metric") || "earnings", threshold: Number(str(f, "threshold") || 0), rate, rateType } });
+  revalidatePath("/admin/rules");
+}
+
+export async function deleteTier(id) {
+  await requireAdmin();
+  await prisma.rateTier.delete({ where: { id } });
+  revalidatePath("/admin/rules");
+}
+
+export async function saveBonus(f) {
+  await requireAdmin();
+  await prisma.bonus.create({ data: { name: str(f, "name") || "Bonus", metric: str(f, "metric") || "referrals", threshold: Number(str(f, "threshold") || 0), amount: Number(str(f, "amount") || 0) } });
+  revalidatePath("/admin/rules");
+}
+
+export async function toggleBonus(id, active) {
+  await requireAdmin();
+  await prisma.bonus.update({ where: { id }, data: { active } });
+  revalidatePath("/admin/rules");
+}
+
 // ---------- Creatives ----------
 export async function saveCreative(f) {
   await requireAdmin();
   const id = str(f, "id");
-  const data = { name: str(f, "name") || "Untitled", description: str(f, "description"), url: str(f, "url") || "", imageUrl: str(f, "imageUrl"), text: str(f, "text"), active: f.get("active") !== "off" };
+  const data = {
+    name: str(f, "name") || "Untitled", description: str(f, "description"), url: str(f, "url") || "", imageUrl: str(f, "imageUrl"),
+    text: str(f, "text"), type: str(f, "type") || "image", groupIds: f.getAll("groupIds").map(String).filter(Boolean), active: f.get("active") !== "off",
+  };
   if (id) await prisma.creative.update({ where: { id }, data });
   else await prisma.creative.create({ data });
   revalidatePath("/admin/creatives");
@@ -186,15 +371,16 @@ export async function deleteCreative(id) {
 export async function updateSettings(f) {
   await requireAdmin();
   const bool = (k) => f.get(k) === "on";
+  const n = (k, d = 0) => (str(f, k) == null ? d : Number(str(f, k)));
   await saveSettings({
     siteName: str(f, "siteName"),
     academyUrl: str(f, "academyUrl"),
     currency: str(f, "currency"),
-    referralVar: str(f, "referralVar") || "ref",
-    cookieDays: Number(str(f, "cookieDays") || 30),
+    referralVar: slugify(str(f, "referralVar")) || "ref",
+    cookieDays: n("cookieDays", 30),
     defaultRateType: str(f, "defaultRateType"),
-    defaultRate: Number(str(f, "defaultRate") || 0),
-    minimumPayout: Number(str(f, "minimumPayout") || 0),
+    defaultRate: n("defaultRate"),
+    minimumPayout: n("minimumPayout"),
     autoApproveAffiliates: bool("autoApproveAffiliates"),
     referralsStartPending: bool("referralsStartPending"),
     newProductsEarnCommission: bool("newProductsEarnCommission"),
@@ -203,8 +389,96 @@ export async function updateSettings(f) {
     crmAffiliateTag: str(f, "crmAffiliateTag"),
     crmReferredCustomerTag: str(f, "crmReferredCustomerTag"),
     crmListName: str(f, "crmListName"),
+    creditLastReferrer: str(f, "credit") !== "first",
+    directLinkTracking: bool("directLinkTracking"),
+    landingPages: bool("landingPages"),
+    flagPpcTraffic: bool("flagPpcTraffic"),
+    flatRateBasis: str(f, "flatRateBasis") || "product",
+    includeShipping: bool("includeShipping"),
+    includeTax: bool("includeTax"),
+    ignoreZeroReferrals: bool("ignoreZeroReferrals"),
+    lifetimeCommissions: bool("lifetimeCommissions"),
+    lifetimeRateType: str(f, "lifetimeRateType") || "",
+    lifetimeRate: str(f, "lifetimeRate") == null ? null : n("lifetimeRate"),
+    recurringReferrals: bool("recurringReferrals"),
+    recurringRateType: str(f, "recurringRateType") || "",
+    recurringRate: str(f, "recurringRate") == null ? null : n("recurringRate"),
+    multiTier: bool("multiTier"),
+    tierRates: (str(f, "tierRates") || "").split(",").map((x) => Number(x.trim())).filter((x) => x > 0).slice(0, 5),
+    signupReferralAmount: n("signupReferralAmount"),
+    requireTerms: bool("requireTerms"),
+    termsUrl: str(f, "termsUrl") || "",
+    registrationFields: f.getAll("registrationFields").map(String),
+    maxSignupsPerIpPerDay: n("maxSignupsPerIpPerDay", 3),
+    autoRegisterCustomers: bool("autoRegisterCustomers"),
+    autoCreateCoupons: bool("autoCreateCoupons"),
+    couponDiscountType: str(f, "couponDiscountType") || "percent",
+    couponAmount: n("couponAmount", 10),
+    storeCreditPayouts: bool("storeCreditPayouts"),
+    showLeaderboard: bool("showLeaderboard"),
+    leaderboardSize: n("leaderboardSize", 10),
+    showCustomerDetails: bool("showCustomerDetails"),
   });
-  redirect("/admin/settings?saved=1");
+  redirect(`/admin/settings?saved=1#${str(f, "section") || ""}`);
+}
+
+export async function updateEmails(f) {
+  await requireAdmin();
+  const emails = {};
+  for (const key of Object.keys(DEFAULT_SETTINGS.emails)) {
+    emails[key] = { subject: String(f.get(`${key}.subject`) ?? "").trim(), body: String(f.get(`${key}.body`) ?? "") };
+  }
+  await saveSettings({ emails });
+  redirect("/admin/emails?saved=1");
+}
+
+export async function sendTestEmail(key) {
+  const admin = await requireAdmin();
+  const sample = { id: "sample", firstName: "Sample", lastName: "Affiliate", email: admin.email, code: "sample" };
+  await sendTemplate(key, admin.email, sample, { amount: "£25.00", products: "Sample Course", reason: "Sample reason", method: "PayPal" });
+  redirect(`/admin/emails?tested=${key}`);
+}
+
+// ---------- API keys & outgoing webhooks ----------
+export async function createApiKey(f) {
+  await requireAdmin();
+  const raw = `tca_${crypto.randomBytes(24).toString("hex")}`;
+  await prisma.apiKey.create({ data: { name: str(f, "name") || "API key", keyHash: crypto.createHash("sha256").update(raw).digest("hex"), prefix: raw.slice(0, 12) } });
+  redirect(`/admin/api?newkey=${raw}`);
+}
+
+export async function deleteApiKey(id) {
+  await requireAdmin();
+  await prisma.apiKey.delete({ where: { id } });
+  revalidatePath("/admin/api");
+}
+
+export async function createWebhook(f) {
+  await requireAdmin();
+  const url = str(f, "url");
+  if (!url || !/^https:\/\//.test(url)) redirect("/admin/api?error=url");
+  const events = f.getAll("events").map(String);
+  await prisma.webhook.create({ data: { url, events: events.length ? events : ["*"], secret: crypto.randomBytes(16).toString("hex") } });
+  revalidatePath("/admin/api");
+}
+
+export async function deleteWebhook(id) {
+  await requireAdmin();
+  await prisma.webhook.delete({ where: { id } });
+  revalidatePath("/admin/api");
+}
+
+export async function testWebhook(id) {
+  await requireAdmin();
+  const h = await prisma.webhook.findUnique({ where: { id } });
+  const body = JSON.stringify({ event: "test", data: { hello: "from TrueCosmic Affiliates" }, sent_at: new Date().toISOString() });
+  try {
+    const res = await fetch(h.url, { method: "POST", headers: { "Content-Type": "application/json", "X-TC-Event": "test", "X-TC-Signature": crypto.createHmac("sha256", h.secret).update(body).digest("hex") }, body, signal: AbortSignal.timeout(8000) });
+    await logEvent("webhook-out:test", res.ok ? "ok" : "error", `${h.url} -> ${res.status}`);
+  } catch (e) {
+    await logEvent("webhook-out:test", "error", `${h.url}: ${e.message}`);
+  }
+  redirect("/admin/logs");
 }
 
 // ---------- Import ----------
@@ -226,7 +500,6 @@ export async function runImport(prevState, f) {
 
 export async function inviteImportedAffiliates() {
   await requireAdmin();
-  const { sendMail } = await import("@/lib/wp");
   const s = await getSettings();
   const list = await prisma.affiliate.findMany({ where: { status: "ACTIVE", notes: "Imported from AffiliateWP" } });
   for (const a of list) {

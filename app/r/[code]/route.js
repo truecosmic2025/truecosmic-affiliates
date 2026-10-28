@@ -20,6 +20,7 @@ export async function GET(req, { params }) {
       referrer: req.headers.get("referer"),
       campaign: req.nextUrl.searchParams.get("c"),
       ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+      source: "short",
     });
     target.searchParams.set(s.referralVar, affiliate.code);
     target.searchParams.set("tc_visit", visit.id); // lets the plugin set the cookie without logging a second visit

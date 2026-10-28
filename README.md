@@ -16,6 +16,8 @@ All traffic between the two is signed with HMAC-SHA256 using `WP_SHARED_SECRET`.
 
 ## What it does
 
+See **FEATURES.md** for the full AffiliateWP feature comparison. Highlights:
+
 | AffiliateWP feature | Here |
 | --- | --- |
 | Referral links `?ref=code`, pretty `/ref/code/` | Yes. Old links that use the AffiliateWP numeric ID or username keep working |
@@ -32,11 +34,19 @@ All traffic between the two is signed with HMAC-SHA256 using `WP_SHARED_SECRET`.
 | Emails | Sent through WordPress `wp_mail` (your existing SMTP) |
 | CRM | FluentCRM contacts, tags, list and custom fields; referred customers tagged |
 
+## Plugins this replaces
+
+AffiliateWP plus its Pro add-ons: Lifetime Commissions, Recurring Referrals, Tiered Rates, Multi-Tier Commissions,
+Direct Link Tracking, Affiliate Landing Pages, Custom Affiliate Slugs, Affiliate Product Rates, Show Affiliate Coupons,
+Order Details for Affiliates, Leaderboard, Sign Up Bonus / Performance Bonuses, Store Credit, PayPal Payouts,
+Zapier, Affiliate Area Tabs, and the Fraud Prevention features.
+
 ## Deploy on Railway
 
 1. Push this repo to GitHub and create a Railway project from it.
 2. Add a **Postgres** database to the project (this sets `DATABASE_URL`).
-3. Set the variables from `.env.example` (`APP_URL`, `SESSION_SECRET`, `WP_SHARED_SECRET`, `WP_SITE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`).
+3. Set the variables from `.env.example` (`APP_URL`, `SESSION_SECRET`, `WP_SHARED_SECRET`, `WP_SITE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
+   and optionally the `PAYPAL_*` keys for automatic payouts).
 4. Add a custom domain such as `affiliates.truecosmic.com`.
 
 On every start the app runs database migrations and makes sure the admin user exists.

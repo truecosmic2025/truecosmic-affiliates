@@ -3,7 +3,9 @@ import { verifySignature } from "@/lib/wp";
 import { logEvent } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { upsertProduct, markProductDeleted } from "@/lib/products";
-import { recordOrder, reverseOrder } from "@/lib/referrals";
+import { recordOrder, reverseOrder, recordSignup } from "@/lib/referrals";
+import { autoRegisterCustomer } from "@/lib/registration";
+import { trackingConfig } from "@/lib/visits";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +26,11 @@ export async function POST(req) {
   try {
     switch (event) {
       case "ping": {
-        const s = await getSettings();
-        return NextResponse.json({ ok: true, referral_var: s.referralVar, cookie_days: s.cookieDays });
+        return NextResponse.json({ ok: true, ...(await trackingConfig(await getSettings())) });
+      }
+      case "user.signup": {
+        const r = await recordSignup(data);
+        return NextResponse.json({ ok: true, skipped: r.skipped, referral_id: r.referral?.id });
       }
       case "product.upsert": {
         const p = await upsertProduct(data);
@@ -40,7 +45,9 @@ export async function POST(req) {
         return NextResponse.json({ ok: true });
       case "order.paid": {
         const r = await recordOrder(data);
-        if (r.skipped) await logEvent("webhook:order.paid", "skipped", `order ${data.id}: ${r.skipped}`);
+        // Most orders aren't affiliate sales; only log skips that are worth a look
+        if (r.skipped && r.skipped !== "no affiliate" && r.skipped !== "already recorded") await logEvent("webhook:order.paid", "skipped", `order ${data.id}: ${r.skipped}`);
+        await autoRegisterCustomer(data);
         return NextResponse.json({ ok: true, skipped: r.skipped, referral_id: r.referral?.id, amount: r.referral?.amount });
       }
       case "order.reversed": {

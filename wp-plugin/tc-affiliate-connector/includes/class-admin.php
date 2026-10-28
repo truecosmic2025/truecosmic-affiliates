@@ -32,16 +32,7 @@ class TCAFF_Admin {
 
     /** Pulls referral variable and cookie length from the app so both sides agree. */
     public static function ping() {
-        $res = TCAFF_Client::event('ping', array('site' => home_url()), 8);
-        if (is_wp_error($res)) return $res;
-        $old_var = TCAFF_Client::referral_var();
-        update_option('tcaff_referral_var', sanitize_key($res['referral_var']));
-        update_option('tcaff_cookie_days', (int) $res['cookie_days']);
-        if ($old_var !== $res['referral_var']) {
-            TCAFF_Tracking::add_endpoint();
-            flush_rewrite_rules();
-        }
-        return $res;
+        return TCAFF_Client::refresh_config();
     }
 
     public static function action() {

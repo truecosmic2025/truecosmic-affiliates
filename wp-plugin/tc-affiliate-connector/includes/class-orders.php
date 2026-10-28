@@ -19,6 +19,7 @@ class TCAFF_Orders {
             add_action('woocommerce_order_status_' . $status, array(__CLASS__, 'queue_reversed'));
         }
         add_action('tcaff_send_paid', array(__CLASS__, 'send_paid'), 10, 2);
+        add_action('user_register', array(__CLASS__, 'user_registered'), 20, 1);
         add_action('tcaff_send_reversed', array(__CLASS__, 'send_reversed'), 10, 2);
     }
 
@@ -39,8 +40,8 @@ class TCAFF_Orders {
     public static function queue_paid($order_id) {
         $order = wc_get_order($order_id);
         if (!$order || $order->get_meta('_tc_aff_sent')) return;
-        // Only orders with a referral cookie or a coupon can produce a commission
-        if (!$order->get_meta('_tc_aff_ref') && !$order->get_coupon_codes()) return;
+        // Every paid order goes to the app: it decides between link, coupon, lifetime and renewal credit,
+        // and can auto-register customers as affiliates. Orders the app can't attribute are simply skipped there.
         self::schedule('tcaff_send_paid', $order_id, 1);
     }
 
@@ -77,8 +78,20 @@ class TCAFF_Orders {
                 'categories' => is_wp_error($cats) ? array() : $cats,
             );
         }
+        $parent_id = 0;
+        $is_renewal = function_exists('wcs_order_contains_renewal') && wcs_order_contains_renewal($order);
+        if ($is_renewal && function_exists('wcs_get_subscriptions_for_renewal_order')) {
+            foreach (wcs_get_subscriptions_for_renewal_order($order) as $sub) {
+                $parent_id = $sub->get_parent_id();
+                break;
+            }
+        }
         return array(
             'id'       => $order->get_id(),
+            'is_renewal'      => $is_renewal,
+            'parent_order_id' => $parent_id,
+            'shipping' => (float) $order->get_shipping_total(),
+            'tax'      => (float) $order->get_total_tax(),
             'number'   => $order->get_order_number(),
             'status'   => $order->get_status(),
             'total'    => (float) $order->get_total() - (float) $order->get_total_tax(),
@@ -107,6 +120,15 @@ class TCAFF_Orders {
             $order->add_order_note(sprintf('Affiliate commission of %s recorded for referral "%s".', wc_price($res['amount'], array('currency' => $order->get_currency())), $order->get_meta('_tc_aff_ref') ?: 'coupon'));
         }
         $order->save();
+    }
+
+    /** Signup referrals: a visitor with a referral cookie created an account. */
+    public static function user_registered($user_id) {
+        if (!TCAFF_Client::config('signup_referrals')) return;
+        $cur = TCAFF_Tracking::current();
+        if ($cur['ref'] === '') return;
+        $user = get_userdata($user_id);
+        TCAFF_Client::event('user.signup', array('ref' => $cur['ref'], 'email' => $user ? $user->user_email : '', 'user_id' => $user_id), 5);
     }
 
     public static function send_reversed($order_id, $attempt = 1) {

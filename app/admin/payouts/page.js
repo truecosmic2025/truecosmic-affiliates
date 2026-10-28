@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { money, fullName, date } from "@/lib/format";
 import { PageHeader, Badge, Empty } from "@/components/ui";
-import { createPayouts } from "@/app/actions/admin";
+import { createPayouts, markPayoutStatus } from "@/app/actions/admin";
+import { paypalConfigured } from "@/lib/paypal";
 
 export default async function Payouts({ searchParams }) {
   const s = await getSettings();
@@ -19,6 +20,7 @@ export default async function Payouts({ searchParams }) {
       <PageHeader title="Payouts" subtitle={`Pay affiliates whose unpaid balance is at least ${m(s.minimumPayout)}`}>
         <a href="/api/admin/payouts-csv" className="btn-secondary">Download PayPal Payouts CSV</a>
       </PageHeader>
+      {searchParams.error && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{searchParams.error}</p>}
       {searchParams.created && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{searchParams.created} payouts recorded and referrals marked paid.</p>}
       <form action={createPayouts} className="card overflow-x-auto">
         <div className="px-5 py-4 text-sm text-slate-500">
@@ -38,7 +40,14 @@ export default async function Payouts({ searchParams }) {
         </table>
         {!rows.length ? <Empty>Nobody is owed anything right now</Empty> : (
           <div className="flex flex-wrap items-end gap-3 p-5">
-            <div><label className="label">Method</label><select name="method" className="input"><option value="paypal">PayPal</option><option value="bank">Bank transfer</option><option value="stripe">Stripe</option><option value="other">Other</option></select></div>
+            <div><label className="label">Method</label><select name="method" className="input">
+              {paypalConfigured() && <option value="paypal-api">Pay now via PayPal API (automatic)</option>}
+              <option value="paypal">PayPal (I paid with the CSV / manually)</option>
+              <option value="bank">Bank transfer</option>
+              {s.storeCreditPayouts && <option value="store-credit">Store credit (WooCommerce coupon)</option>}
+              <option value="stripe">Stripe</option>
+              <option value="other">Other</option>
+            </select></div>
             <div><label className="label">Reference (optional)</label><input name="reference" className="input" placeholder="PayPal batch ID" /></div>
             <button className="btn-primary">Mark selected as paid</button>
           </div>
@@ -46,9 +55,10 @@ export default async function Payouts({ searchParams }) {
       </form>
       <div className="card mt-6 overflow-x-auto">
         <div className="px-5 py-4 font-medium">Payout history</div>
-        <table className="table"><thead><tr><th>Date</th><th>Affiliate</th><th>Amount</th><th>Method</th><th>Reference</th><th>Status</th></tr></thead>
+        <table className="table"><thead><tr><th>Date</th><th>Affiliate</th><th>Amount</th><th>Method</th><th>Reference</th><th>Status</th><th></th></tr></thead>
           <tbody>{history.map((p) => (
-            <tr key={p.id}><td>{date(p.createdAt)}</td><td>{fullName(p.affiliate)}</td><td>{m(p.amount)}</td><td>{p.method}</td><td>{p.reference}</td><td><Badge value={p.status} /></td></tr>
+            <tr key={p.id}><td>{date(p.createdAt)}</td><td>{fullName(p.affiliate)}</td><td>{m(p.amount)}</td><td>{p.method}</td><td className="text-xs">{p.reference}{p.notes && <div className="text-slate-400">{p.notes}</div>}</td><td><Badge value={p.status} /></td>
+              <td>{p.status === "PROCESSING" && <div className="flex gap-1"><form action={markPayoutStatus.bind(null, p.id, "PAID")}><button className="btn-secondary btn-sm">Mark paid</button></form><form action={markPayoutStatus.bind(null, p.id, "FAILED")}><button className="btn-danger btn-sm">Failed</button></form></div>}</td></tr>
           ))}</tbody>
         </table>
         {!history.length && <Empty>No payouts yet</Empty>}

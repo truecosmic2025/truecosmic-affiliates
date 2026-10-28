@@ -17,7 +17,7 @@ test("affiliate override beats default, product override beats affiliate", () =>
     productsByWcId, affiliate, settings,
   });
   assert.equal(r.amount, 6 + 30);
-  assert.deepEqual(rateFor({ product: productsByWcId[2], affiliate, settings }), { type: "FLAT", rate: 15 });
+  assert.deepEqual(rateFor({ product: productsByWcId[2], affiliate, settings }), { type: "FLAT", rate: 15, via: "product" });
 });
 
 test("disabled products earn nothing", () => {

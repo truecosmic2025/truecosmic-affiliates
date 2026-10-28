@@ -16,6 +16,7 @@ export default async function Account({ searchParams }) {
         <div><label className="label">Login email</label><input disabled value={a.email} className="input bg-slate-50" /></div>
         <div><label className="label">PayPal / payment email</label><input name="paymentEmail" type="email" defaultValue={a.paymentEmail || ""} className="input" /></div>
         <div><label className="label">Website or social profile</label><input name="website" defaultValue={a.website || ""} className="input" /></div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="emailOnReferral" defaultChecked={a.emailOnReferral} /> Email me when I earn a new commission</label>
         <button className="btn-primary">Save</button>
       </form>
     </>

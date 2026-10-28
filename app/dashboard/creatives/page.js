@@ -8,7 +8,8 @@ import CopyField from "@/components/CopyField";
 export default async function MyCreatives() {
   const { affiliate } = await requireAffiliate();
   const s = await getSettings();
-  const creatives = await prisma.creative.findMany({ where: { active: true }, orderBy: { createdAt: "desc" } });
+  const all = await prisma.creative.findMany({ where: { active: true }, orderBy: { createdAt: "desc" } });
+  const creatives = all.filter((c) => !c.groupIds.length || c.groupIds.includes(affiliate.groupId));
   return (
     <>
       <PageHeader title="Creatives" subtitle="Ready-made images and copy. Every link below already includes your code." />
@@ -21,8 +22,9 @@ export default async function MyCreatives() {
               <div className="space-y-3 p-4">
                 <div className="font-medium">{c.name}</div>
                 {c.text && <p className="whitespace-pre-line text-sm text-slate-600">{c.text}</p>}
-                <CopyField value={link} />
+                <CopyField value={link} qr={c.type === "qr" || !c.imageUrl} />
                 {c.imageUrl && <CopyField value={`<a href="${link}"><img src="${c.imageUrl}" alt="${c.name}" /></a>`} />}
+                {c.type === "text" && c.text && <CopyField value={`<a href="${link}">${c.text}</a>`} />}
               </div>
             </div>
           );

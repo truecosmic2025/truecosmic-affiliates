@@ -44,13 +44,33 @@ class TCAFF_Client {
         return self::post('/api/wp/webhook', array('event' => $event, 'data' => $data), $timeout);
     }
 
+    /** Tracking config cached from the app (refreshed hourly and on "Save & connect"). */
+    public static function config($key = null, $default = null) {
+        $c = get_option('tcaff_config', array());
+        if ($key === null) return $c;
+        return isset($c[$key]) ? $c[$key] : $default;
+    }
+
+    public static function refresh_config() {
+        $res = self::event('ping', array('site' => home_url()), 8);
+        if (is_wp_error($res)) return $res;
+        $old_var = self::referral_var();
+        unset($res['ok']);
+        update_option('tcaff_config', $res);
+        if ($old_var !== self::referral_var()) {
+            TCAFF_Tracking::add_endpoint();
+            flush_rewrite_rules();
+        }
+        return $res;
+    }
+
     public static function referral_var() {
-        $v = get_option('tcaff_referral_var', 'ref');
+        $v = sanitize_key(self::config('referral_var', 'ref'));
         return $v ? $v : 'ref';
     }
 
     public static function cookie_days() {
-        return max(1, (int) get_option('tcaff_cookie_days', 30));
+        return max(1, (int) self::config('cookie_days', 30));
     }
 
     public static function log($message) {

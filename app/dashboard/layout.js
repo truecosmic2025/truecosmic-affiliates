@@ -1,16 +1,8 @@
 import Shell from "@/components/Shell";
 import { requireAffiliate } from "@/lib/auth";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
-
-const NAV = [
-  { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/links", label: "Products & links" },
-  { href: "/dashboard/referrals", label: "Referrals" },
-  { href: "/dashboard/payouts", label: "Payouts" },
-  { href: "/dashboard/creatives", label: "Creatives" },
-  { href: "/dashboard/account", label: "Account" },
-];
 
 export default async function DashLayout({ children }) {
   const user = await requireAffiliate();
@@ -23,6 +15,20 @@ export default async function DashLayout({ children }) {
         <form action="/logout" method="post" className="mt-6"><button className="btn-secondary">Log out</button></form>
       </div>
     );
-  const nav = user.role === "ADMIN" ? [...NAV, { href: "/admin", label: "← Admin" }] : NAV;
+  const s = await getSettings();
+  const nav = [
+    { href: "/dashboard", label: "Statistics" },
+    { href: "/dashboard/links", label: "Products & links" },
+    { href: "/dashboard/referrals", label: "Referrals" },
+    { href: "/dashboard/visits", label: "Visits & campaigns" },
+    { href: "/dashboard/payouts", label: "Payouts" },
+    { href: "/dashboard/creatives", label: "Creatives" },
+    ...(a.coupons.length ? [{ href: "/dashboard/coupons", label: "Coupons" }] : []),
+    ...(s.multiTier ? [{ href: "/dashboard/network", label: "My network" }] : []),
+    ...(s.directLinkTracking ? [{ href: "/dashboard/direct-links", label: "Direct links" }] : []),
+    ...(s.showLeaderboard ? [{ href: "/dashboard/leaderboard", label: "Leaderboard" }] : []),
+    { href: "/dashboard/account", label: "Account" },
+    ...(user.role === "ADMIN" ? [{ href: "/admin", label: "← Admin" }] : []),
+  ];
   return <Shell nav={nav} user={user} title="Affiliate Hub">{children}</Shell>;
 }

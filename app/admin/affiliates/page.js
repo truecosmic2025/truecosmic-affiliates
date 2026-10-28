@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { money, fullName, date } from "@/lib/format";
 import { PageHeader, Badge, Tabs, Empty } from "@/components/ui";
-import { changeAffiliateStatus } from "@/app/actions/admin";
+import { changeAffiliateStatus, bulkAffiliates } from "@/app/actions/admin";
 
 export default async function Affiliates({ searchParams }) {
   const status = searchParams.status;
@@ -13,8 +13,9 @@ export default async function Affiliates({ searchParams }) {
     ...(status ? { status } : {}),
     ...(q ? { OR: ["email", "firstName", "lastName", "code"].map((k) => ({ [k]: { contains: q, mode: "insensitive" } })) } : {}),
   };
+  const groups = await prisma.affiliateGroup.findMany({ orderBy: { name: "asc" } });
   const [affiliates, counts] = await Promise.all([
-    prisma.affiliate.findMany({ where, orderBy: { createdAt: "desc" }, take: 200, include: { _count: { select: { visits: true } } } }),
+    prisma.affiliate.findMany({ where, orderBy: { createdAt: "desc" }, take: 500, include: { group: true, _count: { select: { visits: true, children: true } } } }),
     prisma.affiliate.groupBy({ by: ["status"], _count: true }),
   ]);
   const sums = await prisma.referral.groupBy({
@@ -30,6 +31,7 @@ export default async function Affiliates({ searchParams }) {
   return (
     <>
       <PageHeader title="Affiliates" subtitle={`${total} affiliates`}>
+        <a href="/api/admin/export/affiliates" className="btn-secondary">Export CSV</a>
         <Link href="/admin/affiliates/new" className="btn-primary">Add affiliate</Link>
       </PageHeader>
       <Tabs
@@ -44,17 +46,33 @@ export default async function Affiliates({ searchParams }) {
         <input name="q" defaultValue={q} placeholder="Search name, email or code" className="input" />
         <button className="btn-secondary">Search</button>
       </form>
+      {searchParams.bulk && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Updated {searchParams.bulk} affiliates.</p>}
+      <form id="bulk" action={bulkAffiliates} className="mb-3 flex flex-wrap items-center gap-2">
+        <select name="bulk" className="input w-auto py-1.5 text-sm" defaultValue="">
+          <option value="" disabled>Bulk action…</option>
+          <option value="ACTIVE">Approve / activate</option>
+          <option value="INACTIVE">Deactivate</option>
+          <option value="REJECTED">Reject</option>
+          <option value="crm">Sync to FluentCRM</option>
+          {groups.map((g) => <option key={g.id} value={`group:${g.id}`}>Move to group: {g.name}</option>)}
+          <option value="group:">Remove from group</option>
+          <option value="delete">Delete</option>
+        </select>
+        <button className="btn-secondary btn-sm">Apply to selected</button>
+      </form>
       <div className="card overflow-x-auto">
         <table className="table">
-          <thead><tr><th>Affiliate</th><th>Code</th><th>Status</th><th>Rate</th><th>Visits</th><th>Sales</th><th>Unpaid</th><th>Paid</th><th>Joined</th><th></th></tr></thead>
+          <thead><tr><th></th><th>Affiliate</th><th>Code</th><th>Status</th><th>Group</th><th>Rate</th><th>Visits</th><th>Sales</th><th>Unpaid</th><th>Paid</th><th>Joined</th><th></th></tr></thead>
           <tbody>
             {affiliates.map((a) => {
               const un = stat(a.id, "UNPAID"), pd = stat(a.id, "PAID");
               return (
                 <tr key={a.id}>
+                  <td><input type="checkbox" name="ids" value={a.id} form="bulk" /></td>
                   <td><Link href={`/admin/affiliates/${a.id}`} className="font-medium text-cosmic-700">{fullName(a)}</Link><div className="text-xs text-slate-400">{a.email}</div></td>
                   <td className="font-mono text-xs">{a.code}{a.legacyId ? <div className="text-slate-400">wp #{a.legacyId}</div> : null}</td>
                   <td><Badge value={a.status} /></td>
+                  <td className="text-xs">{a.group?.name || "—"}{a._count.children ? <div className="text-slate-400">{a._count.children} recruits</div> : null}</td>
                   <td className="whitespace-nowrap">{a.rate != null ? (a.rateType === "FLAT" ? money(a.rate, s.currency) : `${Number(a.rate)}%`) : <span className="text-slate-400">default</span>}</td>
                   <td>{a._count.visits}</td>
                   <td>{(un?._count || 0) + (pd?._count || 0)}</td>

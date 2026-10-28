@@ -13,6 +13,7 @@ class TCAFF_Rest {
         register_rest_route($ns, '/mail', $args + array('callback' => array(__CLASS__, 'mail')));
         register_rest_route($ns, '/crm/contact', $args + array('callback' => array(__CLASS__, 'crm_contact')));
         register_rest_route($ns, '/sync-products', $args + array('callback' => array(__CLASS__, 'sync_products')));
+        register_rest_route($ns, '/coupons/create', $args + array('callback' => array(__CLASS__, 'create_coupon')));
     }
 
     public static function check_signature(WP_REST_Request $req) {
@@ -26,6 +27,27 @@ class TCAFF_Rest {
         $html = wp_kses_post(isset($p['html']) ? $p['html'] : '');
         $sent = wp_mail($to, sanitize_text_field($p['subject']), $html, array('Content-Type: text/html; charset=UTF-8'));
         return array('ok' => (bool) $sent);
+    }
+
+    /** Affiliate coupons (dynamic coupons) and store-credit payouts both become WooCommerce coupons. */
+    public static function create_coupon(WP_REST_Request $req) {
+        if (!class_exists('WC_Coupon')) return new WP_Error('woocommerce_missing', 'WooCommerce is not active', array('status' => 424));
+        $p = $req->get_json_params();
+        $code = wc_format_coupon_code(isset($p['code']) ? $p['code'] : '');
+        if ($code === '') return new WP_Error('bad_request', 'missing code', array('status' => 400));
+        $existing = wc_get_coupon_id_by_code($code);
+        if ($existing) return array('ok' => true, 'id' => $existing, 'existing' => true);
+        $type = in_array($p['discount_type'], array('percent', 'fixed_cart', 'fixed_product'), true) ? $p['discount_type'] : 'percent';
+        $coupon = new WC_Coupon();
+        $coupon->set_code($code);
+        $coupon->set_discount_type($type);
+        $coupon->set_amount((float) $p['amount']);
+        if (!empty($p['email_restriction'])) $coupon->set_email_restrictions(array(sanitize_email($p['email_restriction'])));
+        if (!empty($p['usage_limit'])) $coupon->set_usage_limit((int) $p['usage_limit']);
+        $coupon->set_description(!empty($p['description']) ? sanitize_text_field($p['description']) : 'Affiliate coupon for ' . sanitize_text_field($p['affiliate_code']));
+        $coupon->update_meta_data('_tc_aff_code', sanitize_text_field($p['affiliate_code']));
+        $id = $coupon->save();
+        return array('ok' => true, 'id' => $id);
     }
 
     public static function sync_products() {

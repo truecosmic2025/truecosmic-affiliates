@@ -29,7 +29,7 @@ export default function LinkBuilder({ products, code, referralVar, shortBase, ac
         <div className="font-medium">Make a link to any page</div>
         <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={`Paste any page, e.g. ${academyUrl}`} className="input" />
         <input value={campaign} onChange={(e) => setCampaign(e.target.value.replace(/\s+/g, "-"))} placeholder="Campaign name (optional, e.g. instagram-bio)" className="input" />
-        {custom && (make(custom) ? <CopyField value={make(custom)} /> : <p className="text-xs text-red-600">That doesn't look like a full URL (include https://)</p>)}
+        {custom && (make(custom) ? <CopyField value={make(custom)} qr /> : <p className="text-xs text-red-600">That doesn't look like a full URL (include https://)</p>)}
         <div className="text-xs text-slate-400">Short link: <span className="font-mono">{shortBase}/r/{code}</span> (add <span className="font-mono">?to=/academy/page/</span> to point it anywhere)</div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -45,7 +45,7 @@ export default function LinkBuilder({ products, code, referralVar, shortBase, ac
               <div><div className="font-medium">{p.name}</div><div className="text-xs text-slate-400">{money[p.id]} · you earn {p.earn}</div></div>
               <span className="rounded-full bg-cosmic-50 px-2 py-0.5 text-xs capitalize text-cosmic-700">{p.kind}</span>
             </div>
-            {p.permalink ? <CopyField value={make(p.permalink)} /> : <p className="text-xs text-slate-400">No public page yet</p>}
+            {p.permalink ? <CopyField value={make(p.permalink)} qr /> : <p className="text-xs text-slate-400">No public page yet</p>}
           </div>
         ))}
       </div>
