@@ -97,7 +97,8 @@ model Product {
   id                String                 @id @default(cuid())
   wcId              Int                    @unique
   name              String
-  kind              String                 @default("other") // course | ebook | coaching | other
+  kind              String                 @default("other") // course | ebook | coaching | event | other
+  wcType            String? // WooCommerce product type, e.g. simple, subscription, event_ticket
   price             Decimal                @default(0) @db.Decimal(10, 2)
   permalink         String?
   status            String                 @default("publish")

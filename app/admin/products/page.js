@@ -20,7 +20,7 @@ export default async function Products({ searchParams }) {
       </PageHeader>
       {searchParams.synced && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">WordPress sent {searchParams.synced} products.</p>}
       {searchParams.syncError && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">Couldn't reach the WordPress connector. Check WP_SITE_URL and the shared secret (see Activity log).</p>}
-      <Tabs active={kind || "all"} items={[{ key: "all", label: "All", href: "/admin/products" }, ...["course", "ebook", "coaching", "other"].map((k) => ({ key: k, label: k[0].toUpperCase() + k.slice(1), href: `/admin/products?kind=${k}` }))]} />
+      <Tabs active={kind || "all"} items={[{ key: "all", label: "All", href: "/admin/products" }, ...["course", "ebook", "coaching", "event", "other"].map((k) => ({ key: k, label: k[0].toUpperCase() + k.slice(1), href: `/admin/products?kind=${k}` }))]} />
       <div className="card overflow-x-auto">
         <table className="table">
           <thead><tr><th>Product</th><th>Type</th><th>Price</th><th>Affiliate sales</th><th>Added</th><th>Commission settings</th></tr></thead>
@@ -35,7 +35,7 @@ export default async function Products({ searchParams }) {
               <td>
                 <form action={updateProduct.bind(null, p.id)} className="flex flex-wrap items-center gap-2">
                   <label className="flex items-center gap-1 text-xs"><input type="checkbox" name="commissionEnabled" defaultChecked={p.commissionEnabled} /> Earns</label>
-                  <select name="kind" defaultValue={p.kind} className="input w-28 py-1 text-xs"><option>course</option><option>ebook</option><option>coaching</option><option>other</option></select>
+                  <select name="kind" defaultValue={p.kind} className="input w-28 py-1 text-xs"><option>course</option><option>ebook</option><option>coaching</option><option>event</option><option>other</option></select>
                   <select name="rateType" defaultValue={p.rateType || ""} className="input w-28 py-1 text-xs"><option value="">Default</option><option value="PERCENTAGE">%</option><option value="FLAT">Flat</option></select>
                   <input name="rate" type="number" step="0.01" min="0" defaultValue={p.rate != null ? Number(p.rate) : ""} placeholder={def} className="input w-20 py-1 text-xs" />
                   <button className="btn-secondary btn-sm">Save</button>
