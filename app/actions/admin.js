@@ -16,7 +16,7 @@ import { slugify, money } from "@/lib/format";
 import { domainOf } from "@/lib/visits";
 import { payableWhere } from "@/lib/payouts";
 import { staffReply, accountsContact } from "@/lib/disputes";
-import { PRESETS } from "@/lib/apiauth";
+import { PRESETS, SCOPES } from "@/lib/apiauth";
 
 const str = (f, k) => {
   const v = f.get(k);
@@ -644,4 +644,14 @@ export async function deleteCoachDeal(id) {
   const d = await prisma.coachDeal.delete({ where: { id } });
   await logEvent("coach-deal:deleted", "ok", d.coach);
   revalidatePath("/admin/rules");
+}
+
+// Change what an existing key may do; its value and connector URL stay the same
+export async function updateApiKeyScopes(id, f) {
+  await requireAdmin();
+  const chosen = f.getAll("scopes").map(String);
+  const scopes = chosen.includes("full") ? ["full"] : chosen.filter((s) => SCOPES[s]);
+  const k = await prisma.apiKey.update({ where: { id }, data: { scopes } });
+  await logEvent("api-key:scopes", "ok", `${k.name}: ${scopes.join(", ") || "(none)"}`);
+  redirect("/admin/api?scopes=1");
 }

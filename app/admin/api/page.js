@@ -2,8 +2,8 @@ import { prisma } from "@/lib/db";
 import { date } from "@/lib/format";
 import { PageHeader, Empty } from "@/components/ui";
 import CopyField from "@/components/CopyField";
-import { createApiKey, deleteApiKey, createWebhook, deleteWebhook, testWebhook } from "@/app/actions/admin";
-import { PRESETS } from "@/lib/apiauth";
+import { createApiKey, deleteApiKey, createWebhook, deleteWebhook, testWebhook, updateApiKeyScopes } from "@/app/actions/admin";
+import { PRESETS, SCOPES } from "@/lib/apiauth";
 
 const EVENTS = ["affiliate.created", "affiliate.approved", "affiliate.updated", "referral.created", "referral.updated", "payout.created", "payout.paid", "payout.failed", "dispute.opened", "dispute.message"];
 
@@ -13,6 +13,7 @@ export default async function Api({ searchParams }) {
   return (
     <>
       <PageHeader title="API & webhooks" subtitle="Connect AI agents (Claude connector / MCP), Make, Zapier, n8n or your own tools." />
+      {searchParams.scopes && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Key access updated. Connected agents pick it up on their next request (their tool list refreshes when they reconnect).</p>}
       {searchParams.newkey && (
         <div className="card mb-6 space-y-2 border-amber-300 bg-amber-50 p-5">
           <div className="font-medium">Your new API key. Copy it now: it won't be shown again.</div>
@@ -53,7 +54,18 @@ list_referrals, list_products, get_balances, list/get payouts, list/get disputes
 reply_to_dispute, set_dispute_status. No payout tools; payout details can't be changed.`}</pre>
           </div>
           <table className="table mt-3"><thead><tr><th>Name</th><th>Key</th><th>Access</th><th>Last used</th><th></th></tr></thead>
-            <tbody>{keys.map((k) => <tr key={k.id}><td>{k.name}</td><td className="font-mono text-xs">{k.prefix}…</td><td className="max-w-[220px] text-xs">{k.scopes.includes("full") ? "Full access" : k.scopes.join(", ")}</td><td>{k.lastUsedAt ? date(k.lastUsedAt) : "never"}</td>
+            <tbody>{keys.map((k) => <tr key={k.id}><td>{k.name}</td><td className="font-mono text-xs">{k.prefix}…</td><td className="max-w-[260px] text-xs">
+                <details>
+                  <summary className="cursor-pointer">{k.scopes.includes("full") ? "Full access" : k.scopes.join(", ") || "none"}</summary>
+                  <form action={updateApiKeyScopes.bind(null, k.id)} className="mt-2 space-y-1">
+                    <label className="flex items-center gap-1"><input type="checkbox" name="scopes" value="full" defaultChecked={k.scopes.includes("full")} /> <strong>Full access</strong></label>
+                    {Object.entries(SCOPES).map(([sc, label]) => (
+                      <label key={sc} className="flex items-start gap-1" title={label}><input type="checkbox" name="scopes" value={sc} defaultChecked={k.scopes.includes(sc)} className="mt-0.5" /> <span><code>{sc}</code><span className="block text-slate-400">{label}</span></span></label>
+                    ))}
+                    <button className="btn-secondary btn-sm mt-1">Save access</button>
+                  </form>
+                </details>
+              </td><td>{k.lastUsedAt ? date(k.lastUsedAt) : "never"}</td>
               <td><form action={deleteApiKey.bind(null, k.id)}><button className="btn-danger btn-sm">Revoke</button></form></td></tr>)}</tbody>
           </table>
           {!keys.length && <Empty>No keys</Empty>}
