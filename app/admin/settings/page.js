@@ -41,7 +41,9 @@ export default async function Settings({ searchParams }) {
         <Section id="general" title="General">
           <div><label className="label">Programme name</label><input name="siteName" defaultValue={s.siteName} className="input" /></div>
           <div><label className="label">Academy URL (default link target)</label><input name="academyUrl" defaultValue={s.academyUrl} className="input" /></div>
-          <div><label className="label">Currency</label><select name="currency" defaultValue={s.currency} className="input"><option>GBP</option><option>USD</option><option>EUR</option><option>AUD</option><option>CAD</option></select></div>
+          <div><label className="label">Commission currency</label><select name="currency" defaultValue={s.currency} className="input"><option>USD</option><option>GBP</option><option>EUR</option><option>AUD</option><option>CAD</option></select><p className="mt-1 text-xs text-slate-400">Commissions, balances, payouts and emails.</p></div>
+          <div><label className="label">Store currency</label><select name="storeCurrency" defaultValue={s.storeCurrency} className="input"><option>GBP</option><option>USD</option><option>EUR</option></select><p className="mt-1 text-xs text-slate-400">What WooCommerce charges. Each sale is converted at that day's European Central Bank rate, and the rate is locked on the commission.</p></div>
+          <div><label className="label">Fallback exchange rate (optional)</label><input name="fxFallbackRate" type="number" step="0.0001" min="0" defaultValue={s.fxFallbackRate ?? ""} placeholder="e.g. 1.27" className="input" /><p className="mt-1 text-xs text-slate-400">Used only if the rate service is down and no earlier rate is stored. Such commissions are labelled in Referrals.</p></div>
         </Section>
 
         <Section id="payouts" title="Payout rules and disputes">
@@ -50,6 +52,8 @@ export default async function Settings({ searchParams }) {
           <div><label className="label">Clearing period (days)</label><input name="holdDays" type="number" min="0" defaultValue={s.holdDays} className="input" /><p className="mt-1 text-xs text-slate-400">Commissions can't be paid until the refund window has passed. 0 = immediately.</p></div>
           <div />
           <div className="sm:col-span-2"><Toggle name="newCustomersOnly" checked={s.newCustomersOnly} label="Pay commission on new customers only" hint="A referred customer's first purchase earns commission; repeat buyers don't (unless lifetime commissions are on, or it's a subscription renewal)." /></div>
+          <div><label className="label">Wise: pay from (source currency)</label><select name="wiseSourceCurrency" defaultValue={s.wiseSourceCurrency} className="input"><option>GBP</option><option>USD</option><option>EUR</option></select></div>
+          <div><label className="label">Wise batch CSV columns</label><input name="wiseColumns" defaultValue={s.wiseColumns} className="input font-mono text-xs" /><p className="mt-1 text-xs text-slate-400">Copy the header row from the email-recipient template you download in Wise (Payments → Batch) if it differs.</p></div>
           <div><label className="label">Accounts contact name</label><input name="accountsName" defaultValue={s.accountsName} className="input" /></div>
           <div><label className="label">Accounts email (receives disputes)</label><input name="accountsEmail" type="email" defaultValue={s.accountsEmail} placeholder={process.env.ADMIN_EMAIL} className="input" /><p className="mt-1 text-xs text-slate-400">Blank = sent to the admin email.</p></div>
         </Section>
@@ -75,7 +79,7 @@ export default async function Settings({ searchParams }) {
             <Toggle name="newProductsEarnCommission" checked={s.newProductsEarnCommission} label="New academy products earn commission automatically" />
             <Toggle name="includeShipping" checked={s.includeShipping} label="Include shipping in commission" />
             <Toggle name="includeTax" checked={s.includeTax} label="Include tax in commission" />
-            <Toggle name="ignoreZeroReferrals" checked={s.ignoreZeroReferrals} label="Ignore £0 referrals" hint="e.g. free lead-magnet ebooks or 100%-off coupons" />
+            <Toggle name="ignoreZeroReferrals" checked={s.ignoreZeroReferrals} label="Ignore zero-value referrals" hint="e.g. free lead-magnet ebooks or 100%-off coupons" />
             <Toggle name="referralsStartPending" checked={s.referralsStartPending} label="Hold new commissions for approval" hint="Useful with a refund window; approve them in Referrals before paying." />
             <Toggle name="allowSelfReferral" checked={s.allowSelfReferral} label="Allow affiliates to earn on their own purchases" />
           </div>
@@ -118,7 +122,7 @@ export default async function Settings({ searchParams }) {
           <div><label className="label">Coupon discount</label><div className="flex gap-2"><select name="couponDiscountType" defaultValue={s.couponDiscountType} className="input w-40"><option value="percent">% off</option><option value="fixed_cart">Fixed amount off</option></select><input name="couponAmount" type="number" step="0.01" defaultValue={s.couponAmount} className="input" /></div></div>
           <div />
           <div className="space-y-3 sm:col-span-2">
-            <Toggle name="storeCreditPayouts" checked={s.storeCreditPayouts} label="Offer store credit as a payout method" hint="Pays affiliates with a single-use WooCommerce coupon for their balance, locked to their email." />
+            <p className="text-xs text-slate-500">Affiliates choose PayPal, Wise, Payoneer or Other in their account. Store-credit payouts were removed: commissions are owed in USD and store coupons are in the store currency.</p>
             <p className="text-xs text-slate-500">PayPal API automatic payouts: {paypalConfigured() ? <span className="text-emerald-700">connected</span> : "add PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET to the app's environment variables to enable"}.</p>
           </div>
         </Section>

@@ -11,7 +11,7 @@ export const GET = withApiKey(async (req) => {
   const where = { ...since(req), ...(sp.get("affiliate_id") ? { affiliateId: sp.get("affiliate_id") } : {}), ...(sp.get("status") ? { status: upper(sp.get("status")) } : {}), ...(sp.get("order_id") ? { orderId: sp.get("order_id") } : {}) };
   const rows = await prisma.referral.findMany({ where, orderBy: { createdAt: "desc" }, ...page(req) });
   return NextResponse.json({ data: rows.map(referralJson) });
-});
+}, "referrals:read");
 
 export const POST = withApiKey(async (req) => {
   const b = await req.json();
@@ -27,4 +27,4 @@ export const POST = withApiKey(async (req) => {
   });
   await fireWebhooks("referral.created", referralJson(r));
   return NextResponse.json({ data: referralJson(r) }, { status: 201 });
-});
+}, "referrals:write");

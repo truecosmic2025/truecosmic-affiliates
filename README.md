@@ -36,9 +36,10 @@ See **FEATURES.md** for the full AffiliateWP feature comparison. Highlights:
 
 ## Programme rules
 
-Defaults follow truecosmic.com/academy/affiliate: 35% commission, minimum payout 50, new customers only,
-30-day clearing (refund window), one payout run a month (day 1). Disputes go to the accounts contact set in
-Settings → Payout rules (Franklin). Promotions (e.g. coaching at 10%) are on the Commission rules page.
+Defaults: 35% commission, minimum payout $50, 30-day clearing (refund window), one pay run a month (day 1).
+Everything is in USD; GBP sales are converted at the ECB rate for the sale date and the rate is locked on the
+commission. Disputes go to accounts@truecosmic.com (Franklin, an AI accounts agent with a scoped API key).
+Promotions (e.g. coaching at 10%) are on the Commission rules page.
 
 ## Plugins this replaces
 

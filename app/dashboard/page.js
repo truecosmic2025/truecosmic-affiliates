@@ -48,7 +48,7 @@ export default async function Dashboard({ searchParams }) {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label={`Earned (${range.label})`} value={m(period.earned)} hint={`${period.referrals} referrals`} />
         <Stat label={`Next payout · ${date(nextPayoutDate(s))}`} value={m(all.payable)} hint={all.payable >= s.minimumPayout ? `Cleared and ready${all.clearing ? ` · ${m(all.clearing)} still clearing` : ""}` : `Paid once you reach ${m(s.minimumPayout)}${all.clearing ? ` · ${m(all.clearing)} still clearing` : ""}`} />
-        <Stat label="Paid to you" value={m(all.paid)} hint="All time" />
+        <Stat label="Paid to you" value={m(all.paid)} hint={all.inFlight ? `${m(all.inFlight)} on its way now` : "All time"} />
         <Stat label={`Clicks (${range.label})`} value={period.visits} hint={`${period.conversionRate.toFixed(1)}% became sales`} />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-2">

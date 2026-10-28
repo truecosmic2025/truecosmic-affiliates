@@ -49,8 +49,8 @@ export default async function Referrals({ searchParams }) {
               <td>{r.orderId || "—"}</td>
               <td className="text-xs">{r.customerEmail || "—"}</td>
               <td className="max-w-[220px] truncate" title={r.description || ""}>{r.description}</td>
-              <td>{m(r.orderTotal)}</td>
-              <td className="font-medium">{m(r.amount)}</td>
+              <td>{m(r.orderTotal)}{r.orderTotalOriginal != null && r.originalCurrency && <div className="text-xs text-slate-400">{money(r.orderTotalOriginal, r.originalCurrency)}</div>}</td>
+              <td className="font-medium">{m(r.amount)}{r.fxRate && <div className="text-xs font-normal text-slate-400" title={r.fxSource || ""}>{money(r.amountOriginal, r.originalCurrency)} @ {Number(r.fxRate).toFixed(4)} · {r.fxDate?.toISOString().slice(0, 10)}</div>}</td>
               <td className="text-xs">{r.type}{r.tierLevel ? ` L${r.tierLevel}` : ""} · {r.source}{r.campaign && <div className="text-slate-400">{r.campaign}</div>}{r.flagged && <div className="font-medium text-red-600">⚑ {r.flagged === "ppc" ? "paid-ad traffic" : r.flagged}</div>}</td>
               <td><Badge value={r.status} /></td>
               <td className="whitespace-nowrap">

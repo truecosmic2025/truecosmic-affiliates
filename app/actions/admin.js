@@ -11,11 +11,12 @@ import { syncAffiliateToCrm } from "@/lib/crm";
 import { importAffiliates, importReferrals } from "@/lib/importer";
 import { callWordPress, sendMail } from "@/lib/wp";
 import { sendTemplate, fireWebhooks, referralJson } from "@/lib/notify";
-import { sendPayPalPayouts } from "@/lib/paypal";
+import { approveRun, markGroupPaid, markPaid, releasePayout, syncPayPalRun, manualPayout } from "@/lib/payruns";
 import { slugify, money } from "@/lib/format";
 import { domainOf } from "@/lib/visits";
 import { payableWhere } from "@/lib/payouts";
 import { staffReply, accountsContact } from "@/lib/disputes";
+import { PRESETS } from "@/lib/apiauth";
 
 const str = (f, k) => {
   const v = f.get(k);
@@ -211,60 +212,52 @@ export async function addManualReferral(f) {
 }
 
 // ---------- Payouts ----------
-export async function createPayouts(f) {
-  await requireAdmin();
-  const s = await getSettings();
+export async function approvePayRun(f) {
+  const admin = await requireAdmin();
   const ids = f.getAll("affiliateId").map(String);
-  const method = str(f, "method") || "paypal";
-  let reference = str(f, "reference");
-  const batch = [];
-  for (const affiliateId of ids) {
-    const refs = await prisma.referral.findMany({ where: { affiliateId, ...payableWhere() } });
-    if (!refs.length) continue;
-    const a = await prisma.affiliate.findUnique({ where: { id: affiliateId } });
-    batch.push({ a, refs, amount: Math.round(refs.reduce((x, r) => x + Number(r.amount), 0) * 100) / 100 });
-  }
-  if (!batch.length) redirect("/admin/payouts");
-
-  // Automatic payment through the PayPal Payouts API when credentials are configured
-  if (method === "paypal-api") {
-    try {
-      reference = await sendPayPalPayouts(batch.map((b) => ({ email: b.a.paymentEmail || b.a.email, amount: b.amount, id: b.a.code })), s);
-    } catch (e) {
-      await logEvent("payouts:paypal", "error", e.message);
-      redirect(`/admin/payouts?error=${encodeURIComponent(e.message.slice(0, 200))}`);
-    }
-  }
-  for (const { a, refs, amount } of batch) {
-    let note = null;
-    if (method === "store-credit") {
-      const code = `CREDIT-${a.code}-${Date.now().toString(36)}`.toUpperCase().replace(/[^A-Z0-9-]/g, "");
-      try {
-        await callWordPress("coupons/create", { code, discount_type: "fixed_cart", amount, email_restriction: a.email, usage_limit: 1, affiliate_code: a.code, description: `Affiliate store credit for ${a.email}` });
-        note = `Store credit coupon ${code}`;
-      } catch (e) {
-        await logEvent("payouts:store-credit", "error", `${a.code}: ${e.message}`);
-        continue;
-      }
-    }
-    const payout = await prisma.payout.create({
-      data: { affiliateId: a.id, amount, currency: refs[0].currency, method, reference, notes: note, status: method === "paypal-api" ? "PROCESSING" : "PAID" },
-    });
-    await prisma.referral.updateMany({ where: { id: { in: refs.map((r) => r.id) } }, data: { status: "PAID", payoutId: payout.id } });
-    const methodLabel = { paypal: "PayPal", "paypal-api": "PayPal", bank: "bank transfer", "store-credit": `store credit (coupon code ${note?.split(" ").pop()})`, stripe: "Stripe", other: "our usual method" }[method] || method;
-    await sendTemplate("payoutSent", a.email, a, { amount: money(amount, refs[0].currency), method: methodLabel });
-    await fireWebhooks("payout.created", { id: payout.id, affiliate_id: a.id, amount, currency: payout.currency, method, reference });
-    await syncAffiliateToCrm(a.id, ["Affiliate - Paid"]);
-  }
-  await logEvent("payouts:created", "ok", `${batch.length} payouts via ${method}`);
-  redirect(`/admin/payouts?created=${batch.length}`);
+  const { run, error, paypalError } = await approveRun(admin.email, ids);
+  if (error) redirect(`/admin/payouts?error=${encodeURIComponent(error)}`);
+  redirect(`/admin/payouts?run=${run.id}${paypalError ? `&error=${encodeURIComponent(`PayPal group not sent and returned to the balance: ${paypalError.slice(0, 200)}`)}` : ""}`);
 }
 
-export async function markPayoutStatus(id, status) {
+export async function payRunGroupPaid(runId, method, f) {
   await requireAdmin();
-  await prisma.payout.update({ where: { id }, data: { status } });
-  if (status === "FAILED") await prisma.referral.updateMany({ where: { payoutId: id }, data: { status: "UNPAID", payoutId: null } });
+  const n = await markGroupPaid(runId, method, str(f, "reference"));
+  redirect(`/admin/payouts?marked=${n}`);
+}
+
+export async function payoutPaid(id, f) {
+  await requireAdmin();
+  await markPaid(id, str(f, "reference"));
   revalidatePath("/admin/payouts");
+}
+
+export async function payoutFailed(id, f) {
+  await requireAdmin();
+  await releasePayout(id, str(f, "reason") || "Payment was not accepted");
+  redirect("/admin/payouts?failed=1");
+}
+
+export async function checkPayPalRun(runId) {
+  await requireAdmin();
+  let target;
+  try {
+    const r = await syncPayPalRun(runId);
+    target = r.error ? `/admin/payouts?error=${encodeURIComponent(r.error)}` : `/admin/payouts?synced=${r.paid}-${r.failed}-${r.waiting}`;
+  } catch (e) {
+    target = `/admin/payouts?error=${encodeURIComponent(e.message.slice(0, 200))}`;
+  }
+  redirect(target);
+}
+
+export async function createManualPayout(f) {
+  const admin = await requireAdmin();
+  const r = await manualPayout({
+    affiliateId: str(f, "affiliateId"), amount: str(f, "amount"), method: str(f, "method") || "paypal", reference: str(f, "reference"),
+    reason: str(f, "reason"), approvedBy: admin.email, sendViaPayPal: f.get("sendViaPayPal") === "on" && str(f, "method") === "paypal",
+  });
+  if (r.error) redirect(`/admin/payouts?error=${encodeURIComponent(r.error)}#manual`);
+  redirect(`/admin/payouts?manual=1`);
 }
 
 // ---------- Products ----------
@@ -378,6 +371,8 @@ export async function updateSettings(f) {
     siteName: str(f, "siteName"),
     academyUrl: str(f, "academyUrl"),
     currency: str(f, "currency"),
+    storeCurrency: str(f, "storeCurrency") || "GBP",
+    fxFallbackRate: str(f, "fxFallbackRate") == null ? null : n("fxFallbackRate"),
     referralVar: slugify(str(f, "referralVar")) || "ref",
     cookieDays: n("cookieDays", 30),
     defaultRateType: str(f, "defaultRateType"),
@@ -421,7 +416,8 @@ export async function updateSettings(f) {
     autoCreateCoupons: bool("autoCreateCoupons"),
     couponDiscountType: str(f, "couponDiscountType") || "percent",
     couponAmount: n("couponAmount", 10),
-    storeCreditPayouts: bool("storeCreditPayouts"),
+    wiseSourceCurrency: str(f, "wiseSourceCurrency") || "GBP",
+    wiseColumns: str(f, "wiseColumns") || DEFAULT_SETTINGS.wiseColumns,
     showLeaderboard: bool("showLeaderboard"),
     leaderboardSize: n("leaderboardSize", 10),
     showCustomerDetails: bool("showCustomerDetails"),
@@ -442,7 +438,7 @@ export async function updateEmails(f) {
 export async function sendTestEmail(key) {
   const admin = await requireAdmin();
   const sample = { id: "sample", firstName: "Sample", lastName: "Affiliate", email: admin.email, code: "sample" };
-  await sendTemplate(key, admin.email, sample, { amount: "£25.00", products: "Sample Course", reason: "Sample reason", method: "PayPal" });
+  await sendTemplate(key, admin.email, sample, { amount: "$25.00", products: "Sample Course", reason: "Sample reason", method: "PayPal" });
   redirect(`/admin/emails?tested=${key}`);
 }
 
@@ -450,7 +446,8 @@ export async function sendTestEmail(key) {
 export async function createApiKey(f) {
   await requireAdmin();
   const raw = `tca_${crypto.randomBytes(24).toString("hex")}`;
-  await prisma.apiKey.create({ data: { name: str(f, "name") || "API key", keyHash: crypto.createHash("sha256").update(raw).digest("hex"), prefix: raw.slice(0, 12) } });
+  const preset = PRESETS[str(f, "preset")] || PRESETS.accounts;
+  await prisma.apiKey.create({ data: { name: str(f, "name") || "API key", keyHash: crypto.createHash("sha256").update(raw).digest("hex"), prefix: raw.slice(0, 12), scopes: preset.scopes } });
   redirect(`/admin/api?newkey=${raw}`);
 }
 

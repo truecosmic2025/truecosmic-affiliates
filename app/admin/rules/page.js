@@ -75,7 +75,7 @@ export default async function Rules({ searchParams }) {
 
         <section className="card">
           <div className="px-5 pt-5 font-medium">Product category rates</div>
-          <p className="muted px-5">e.g. 30% on all Courses, £20 flat on Coaching.</p>
+          <p className="muted px-5">e.g. 30% on all Courses, $20 flat on Coaching. Flat amounts are in the commission currency.</p>
           <table className="table mt-3"><thead><tr><th>Category</th><th>Rate</th><th></th></tr></thead>
             <tbody>{cats.map((c) => (
               <tr key={c.id}><td>{c.category}</td><td>{rateLabel(c.rateType, c.rate)}</td><td><form action={deleteCategoryRate.bind(null, c.id)}><button className="btn-danger btn-sm">Remove</button></form></td></tr>
@@ -124,7 +124,7 @@ export default async function Rules({ searchParams }) {
           {!bonuses.length && <Empty>No bonuses</Empty>}
           <form action={saveBonus} className="grid gap-2 border-t border-slate-100 p-5 sm:grid-cols-2">
             <input name="name" required placeholder="Name, e.g. First 10 sales" className="input sm:col-span-2" />
-            <select name="metric" className="input"><option value="signup">Welcome bonus (on approval)</option><option value="referrals">After N sales</option><option value="earnings">After earning £X</option></select>
+            <select name="metric" className="input"><option value="signup">Welcome bonus (on approval)</option><option value="referrals">After N sales</option><option value="earnings">After earning a set amount</option></select>
             <input name="threshold" type="number" step="0.01" min="0" placeholder="Threshold (not needed for welcome)" className="input" />
             <input name="amount" type="number" step="0.01" min="0" required placeholder="Bonus amount" className="input" />
             <button className="btn-primary">Add bonus</button>

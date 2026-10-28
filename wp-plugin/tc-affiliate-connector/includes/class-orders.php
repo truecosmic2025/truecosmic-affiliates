@@ -97,6 +97,9 @@ class TCAFF_Orders {
             'status'   => $order->get_status(),
             'total'    => (float) $order->get_total() - (float) $order->get_total_tax(),
             'currency' => $order->get_currency(),
+            // The app converts to USD at the rate for this date, so send when the order was paid
+            'date_paid'    => $order->get_date_paid() ? $order->get_date_paid()->date('c') : null,
+            'date_created' => $order->get_date_created() ? $order->get_date_created()->date('c') : null,
             'gateway'  => $order->get_payment_method(),
             'customer' => array(
                 'email' => $order->get_billing_email(),

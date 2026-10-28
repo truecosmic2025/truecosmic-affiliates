@@ -48,44 +48,49 @@ model User {
 }
 
 model Affiliate {
-  id              String                 @id @default(cuid())
-  legacyId        Int?                   @unique // AffiliateWP affiliate_id, keeps old ?ref=123 links working
-  code            String                 @unique // referral slug used in ?ref=
-  user            User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  userId          String?                @unique
-  email           String                 @unique
-  firstName       String?
-  lastName        String?
-  paymentEmail    String?
-  website         String?
-  promotionPlan   String?
-  status          AffiliateStatus        @default(PENDING)
-  rateType        RateType? // null = use global default
-  rate            Decimal?               @db.Decimal(10, 2)
-  coupons         String[]               @default([])
-  notes           String?
-  crmSyncedAt     DateTime?
-  group           AffiliateGroup?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  groupId         String?
-  parent          Affiliate?             @relation("Network", fields: [parentId], references: [id], onDelete: SetNull)
-  parentId        String?
-  children        Affiliate[]            @relation("Network")
-  rejectionReason String?
-  registration    Json? // extra answers from the sign-up form
-  signupIpHash    String?
-  emailOnReferral Boolean                @default(true)
-  dynamicCoupon   String?
-  visits          Visit[]
-  referrals       Referral[]
-  payouts         Payout[]
-  customers       Customer[]
-  productRates    AffiliateProductRate[]
-  landingPages    LandingPage[]
-  directLinks     DirectLink[]
-  bonusAwards     BonusAward[]
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  disputes        Dispute[]
+  id                     String                 @id @default(cuid())
+  legacyId               Int?                   @unique // AffiliateWP affiliate_id, keeps old ?ref=123 links working
+  code                   String                 @unique // referral slug used in ?ref=
+  user                   User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId                 String?                @unique
+  email                  String                 @unique
+  firstName              String?
+  lastName               String?
+  paymentEmail           String?
+  website                String?
+  promotionPlan          String?
+  status                 AffiliateStatus        @default(PENDING)
+  rateType               RateType? // null = use global default
+  rate                   Decimal?               @db.Decimal(10, 2)
+  coupons                String[]               @default([])
+  notes                  String?
+  crmSyncedAt            DateTime?
+  group                  AffiliateGroup?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  groupId                String?
+  parent                 Affiliate?             @relation("Network", fields: [parentId], references: [id], onDelete: SetNull)
+  parentId               String?
+  children               Affiliate[]            @relation("Network")
+  rejectionReason        String?
+  registration           Json? // extra answers from the sign-up form
+  signupIpHash           String?
+  emailOnReferral        Boolean                @default(true)
+  dynamicCoupon          String?
+  visits                 Visit[]
+  referrals              Referral[]
+  payouts                Payout[]
+  customers              Customer[]
+  productRates           AffiliateProductRate[]
+  landingPages           LandingPage[]
+  directLinks            DirectLink[]
+  bonusAwards            BonusAward[]
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  disputes               Dispute[]
+  payoutMethod           String                 @default("paypal") // paypal | payoneer | wise | other
+  payoutDetails          Json?
+  pendingPayout          Json? // requested change, applied once confirmed by email
+  pendingPayoutTokenHash String?
+  pendingPayoutExpires   DateTime?
 }
 
 model Product {
@@ -124,38 +129,45 @@ model Visit {
 }
 
 model Referral {
-  id               String         @id @default(cuid())
-  legacyId         Int?           @unique
-  affiliate        Affiliate      @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
-  affiliateId      String
-  visit            Visit?         @relation(fields: [visitId], references: [id], onDelete: SetNull)
-  visitId          String?
-  orderId          String? // WooCommerce order id (unique per affiliate+type, see below)
-  orderTotal       Decimal        @default(0) @db.Decimal(10, 2)
-  amount           Decimal        @db.Decimal(10, 2) // commission
-  currency         String         @default("GBP")
-  status           ReferralStatus @default(UNPAID)
-  description      String?
-  items            Json?
-  customerEmail    String?
-  customerName     String?
-  source           String         @default("link") // link | coupon | lifetime | manual | import | direct | landing
-  type             String         @default("sale") // sale | recurring | tier | bonus | signup
-  tierLevel        Int?
-  parentReferral   Referral?      @relation("Tier", fields: [parentReferralId], references: [id], onDelete: Cascade)
-  parentReferralId String?
-  tierReferrals    Referral[]     @relation("Tier")
-  customer         Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  customerId       String?
-  campaign         String?
-  flagged          String?
-  notes            String?
-  payout           Payout?        @relation(fields: [payoutId], references: [id], onDelete: SetNull)
-  payoutId         String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  clearsAt         DateTime? // end of the refund window; not payable before this
-  disputes         Dispute[]
+  id                 String         @id @default(cuid())
+  legacyId           Int?           @unique
+  affiliate          Affiliate      @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId        String
+  visit              Visit?         @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  visitId            String?
+  orderId            String? // WooCommerce order id (unique per affiliate+type, see below)
+  orderTotal         Decimal        @default(0) @db.Decimal(10, 2)
+  amount             Decimal        @db.Decimal(10, 2) // commission
+  currency           String         @default("USD")
+  status             ReferralStatus @default(UNPAID)
+  description        String?
+  items              Json?
+  customerEmail      String?
+  customerName       String?
+  source             String         @default("link") // link | coupon | lifetime | manual | import | direct | landing
+  type               String         @default("sale") // sale | recurring | tier | bonus | signup
+  tierLevel          Int?
+  parentReferral     Referral?      @relation("Tier", fields: [parentReferralId], references: [id], onDelete: Cascade)
+  parentReferralId   String?
+  tierReferrals      Referral[]     @relation("Tier")
+  customer           Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerId         String?
+  campaign           String?
+  flagged            String?
+  notes              String?
+  payout             Payout?        @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  payoutId           String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  clearsAt           DateTime? // end of the refund window; not payable before this
+  // Store sells in GBP, commissions are owed in USD: the conversion is locked at the sale date
+  originalCurrency   String?
+  amountOriginal     Decimal?       @db.Decimal(12, 2)
+  orderTotalOriginal Decimal?       @db.Decimal(12, 2)
+  fxRate             Decimal?       @db.Decimal(18, 8)
+  fxDate             DateTime?
+  fxSource           String?
+  disputes           Dispute[]
 
   @@unique([orderId, affiliateId, type])
   @@index([affiliateId, status])
@@ -163,18 +175,52 @@ model Referral {
 }
 
 model Payout {
-  id          String       @id @default(cuid())
-  affiliate   Affiliate    @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
-  affiliateId String
-  amount      Decimal      @db.Decimal(10, 2)
-  currency    String       @default("GBP")
-  method      String       @default("paypal")
-  status      PayoutStatus @default(PAID)
-  reference   String?
-  notes       String?
-  referrals   Referral[]
-  disputes    Dispute[]
-  createdAt   DateTime     @default(now())
+  id            String       @id @default(cuid())
+  affiliate     Affiliate    @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId   String
+  amount        Decimal      @db.Decimal(10, 2)
+  currency      String       @default("USD")
+  method        String       @default("paypal") // paypal | payoneer | wise | other
+  status        PayoutStatus @default(PAID)
+  reference     String?
+  notes         String?
+  kind          String       @default("run") // run | manual
+  reason        String? // required for manual payouts (prize, settlement, correction)
+  payTo         Json? // snapshot of the payout details used
+  run           PayoutRun?   @relation(fields: [runId], references: [id], onDelete: SetNull)
+  runId         String?
+  externalId    String? // PayPal payout item / batch id
+  failureReason String?
+  paidAt        DateTime?
+  referrals     Referral[]
+  disputes      Dispute[]
+  createdAt     DateTime     @default(now())
+
+  @@index([runId])
+}
+
+model PayoutRun {
+  id            String   @id @default(cuid())
+  approvedBy    String
+  total         Decimal  @db.Decimal(12, 2)
+  currency      String   @default("USD")
+  summary       Json // per-method counts and totals at approval
+  paypalBatchId String?
+  payouts       Payout[]
+  createdAt     DateTime @default(now())
+}
+
+model FxRate {
+  id        String   @id @default(cuid())
+  base      String
+  quote     String
+  day       String // YYYY-MM-DD the rate applies to (as requested)
+  rateDate  String // YYYY-MM-DD the provider published (previous business day on weekends)
+  rate      Decimal  @db.Decimal(18, 8)
+  source    String
+  createdAt DateTime @default(now())
+
+  @@unique([base, quote, day])
 }
 
 model Creative {
@@ -305,6 +351,7 @@ model ApiKey {
   name       String
   keyHash    String    @unique
   prefix     String
+  scopes     String[]  @default(["full"])
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())
 }

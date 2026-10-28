@@ -11,7 +11,7 @@ export const GET = withApiKey(async (req) => {
   const where = { ...(sp.get("status") ? { status: upper(sp.get("status")) } : {}), ...(sp.get("email") ? { email: sp.get("email").toLowerCase() } : {}) };
   const rows = await prisma.affiliate.findMany({ where, orderBy: { createdAt: "desc" }, ...page(req) });
   return NextResponse.json({ data: rows.map(affiliateJson) });
-});
+}, "affiliates:read");
 
 export const POST = withApiKey(async (req) => {
   const b = await req.json();
@@ -25,4 +25,4 @@ export const POST = withApiKey(async (req) => {
     if (e instanceof RegistrationError) return NextResponse.json({ error: e.message }, { status: 422 });
     throw e;
   }
-});
+}, "affiliates:write");

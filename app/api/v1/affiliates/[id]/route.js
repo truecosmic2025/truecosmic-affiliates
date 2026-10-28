@@ -13,7 +13,7 @@ export const GET = withApiKey(async (req, { params }) => {
   const a = await find(params.id);
   if (!a) return NextResponse.json({ error: "not found" }, { status: 404 });
   return NextResponse.json({ data: { ...affiliateJson(a), stats: await summary({ affiliateId: a.id }) } });
-});
+}, "affiliates:read");
 
 export const PATCH = withApiKey(async (req, { params }) => {
   const a = await find(params.id);
@@ -29,4 +29,4 @@ export const PATCH = withApiKey(async (req, { params }) => {
   let updated = Object.keys(data).length ? await prisma.affiliate.update({ where: { id: a.id }, data }) : a;
   if (b.status && upper(b.status) !== a.status) updated = await setAffiliateStatus(a.id, upper(b.status), { reason: b.reason });
   return NextResponse.json({ data: affiliateJson(updated) });
-});
+}, "affiliates:write");

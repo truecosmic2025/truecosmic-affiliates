@@ -5,6 +5,9 @@ import { requireAffiliate } from "@/lib/auth";
 import { syncAffiliateToCrm } from "@/lib/crm";
 import { domainOf } from "@/lib/visits";
 import { openDispute, affiliateReply } from "@/lib/disputes";
+import crypto from "node:crypto";
+import { validateDetails, describe, payTo } from "@/lib/payoutMethods";
+import { sendTemplate } from "@/lib/notify";
 
 export async function updateMyAccount(f) {
   const user = await requireAffiliate();
@@ -12,7 +15,7 @@ export async function updateMyAccount(f) {
   await prisma.affiliate.update({
     where: { id: user.affiliate.id },
     data: {
-      firstName: clean("firstName"), lastName: clean("lastName"), paymentEmail: clean("paymentEmail"), website: clean("website"),
+      firstName: clean("firstName"), lastName: clean("lastName"), website: clean("website"),
       emailOnReferral: f.get("emailOnReferral") === "on",
     },
   });
@@ -51,4 +54,35 @@ export async function replyToDispute(id, f) {
   const body = String(f.get("body") || "").trim();
   if (body) await affiliateReply(affiliate, id, body);
   redirect(`/dashboard/disputes/${id}`);
+}
+
+// Payout details only change after the affiliate clicks a link sent to their login email,
+// so someone who gets into the account can't quietly redirect payouts.
+export async function requestPayoutChange(f) {
+  const { affiliate } = await requireAffiliate();
+  const method = String(f.get("method") || "");
+  const v = validateDetails(method, (k) => f.get(`${method}.${k}`));
+  if (v.error) redirect(`/dashboard/account?payoutError=${encodeURIComponent(v.error)}`);
+  const token = crypto.randomBytes(32).toString("hex");
+  await prisma.affiliate.update({
+    where: { id: affiliate.id },
+    data: {
+      pendingPayout: { method: v.method, details: v.details },
+      pendingPayoutTokenHash: crypto.createHash("sha256").update(token).digest("hex"),
+      pendingPayoutExpires: new Date(Date.now() + 48 * 3600 * 1000),
+    },
+  });
+  await sendTemplate("payoutDetailsConfirm", affiliate.email, affiliate, {
+    new_details: describe(v),
+    old_details: describe(payTo(affiliate)),
+    confirm_url: `${process.env.APP_URL}/payout-confirm?token=${token}`,
+  });
+  await logEvent("payout-details:requested", "ok", `${affiliate.code} -> ${v.method}`);
+  redirect("/dashboard/account?payoutPending=1");
+}
+
+export async function cancelPayoutChange() {
+  const { affiliate } = await requireAffiliate();
+  await prisma.affiliate.update({ where: { id: affiliate.id }, data: { pendingPayout: null, pendingPayoutTokenHash: null, pendingPayoutExpires: null } });
+  redirect("/dashboard/account");
 }

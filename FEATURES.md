@@ -78,7 +78,7 @@ coaching, Stripe + PayPal). ✅ = built and covered by the automated tests. ➖ 
 | Manual payouts + payout history | ✅ |
 | PayPal mass-payment CSV | ✅ |
 | PayPal Payouts (automatic) | ✅ When `PAYPAL_CLIENT_ID/SECRET` are set |
-| Store credit | ✅ Single-use WooCommerce coupon locked to the affiliate's email |
+| Store credit | ➖ Removed: commissions are owed in USD and store coupons are in GBP |
 | Minimum payout | ✅ |
 | Stripe payouts | ➖ Needs Stripe Connect onboarding for each affiliate; mark as paid with method "Stripe" instead |
 | Payouts Service (international bank transfers) | ➖ AffiliateWP's own hosted service; use bank transfer + mark as paid |
@@ -109,11 +109,16 @@ Based on truecosmic.com/academy/affiliate. Every value can be changed in Setting
 
 | Rule | Here |
 | --- | --- |
+| Commissions, balances, minimum payout and emails in USD | ✅ Store sells in GBP: each sale is converted at the European Central Bank rate for the sale date and locked. The GBP amount, the rate, its date and source, and the USD amount are stored on every commission |
 | 35% default commission | ✅ Default rate (adjustable) |
 | Up to 50% "in some cases" / 10% on coaching | ✅ Promotions: time-limited rates by product, category or whole store, optionally for chosen groups |
 | Minimum payout 50 | ✅ Adjustable |
-| Commission on new customers | ✅ "New customers only" (lifetime commissions and renewals excepted) |
+| Commission on new customers | ✅ Optional "new customers only" setting, off by default (not part of the published rules) |
 | 30-day refund window, paid after the sale clears | ✅ Clearing period: commissions are payable N days after the sale |
 | Monthly payout run, no instant payouts | ✅ Payout day of the month; affiliates see their next payout date and cleared balance |
+| Payout methods | ✅ Affiliates choose PayPal, Wise, Payoneer or Other; changing details needs an emailed confirmation link |
+| Pay run | ✅ Grouped by method, one approval. PayPal sent through the API with a status check; Wise batch CSV (headers configurable) then mark paid; Payoneer / Other export then mark paid with a reference. Failed payouts return to the balance and email the affiliate |
+| Manual payouts | ✅ Any affiliate, any amount, any time, with method, reference and a required reason; optionally sent through PayPal |
+| AI accounts agent (Franklin) | ✅ Scoped API key: list/read disputes, reply, set status, read payouts and balances. No API endpoint can create or send a payout |
 | Disputes | ✅ Affiliates flag a referral or payout, or report a missing sale; emailed to the accounts agent (Franklin); threaded replies, statuses, and one-click commission correction from the dispute |
 | Staff access | ✅ Team page: add staff (e.g. the accounts agent) who sign in by email link |

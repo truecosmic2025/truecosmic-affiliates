@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { summary } from "@/lib/stats";
 import { money, fullName, date, affiliateLink } from "@/lib/format";
+import { payTo, describe } from "@/lib/payoutMethods";
 import { PageHeader, Badge, Stat, Empty } from "@/components/ui";
 import RateFields from "@/components/RateFields";
 import CopyField from "@/components/CopyField";
@@ -66,7 +67,7 @@ export default async function AffiliateDetail({ params, searchParams }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div><label className="label">First name</label><input name="firstName" defaultValue={a.firstName || ""} className="input" /></div>
             <div><label className="label">Last name</label><input name="lastName" defaultValue={a.lastName || ""} className="input" /></div>
-            <div><label className="label">Payment email</label><input name="paymentEmail" defaultValue={a.paymentEmail || ""} className="input" /></div>
+            <div><label className="label">PayPal email</label><input name="paymentEmail" defaultValue={a.paymentEmail || ""} className="input" /></div>
             <div><label className="label">Website</label><input name="website" defaultValue={a.website || ""} className="input" /></div>
             <div><label className="label">Referral code (custom slug)</label><input name="code" defaultValue={a.code} className="input font-mono" /></div>
             <div><label className="label">Status</label><select name="status" defaultValue={a.status} className="input"><option>ACTIVE</option><option>PENDING</option><option>INACTIVE</option><option>REJECTED</option></select></div>
@@ -89,6 +90,11 @@ export default async function AffiliateDetail({ params, searchParams }) {
         </form>
 
         <div className="space-y-6">
+          <div className="card space-y-2 p-6 text-sm">
+            <div className="font-medium">Payout method</div>
+            <div>{describe(payTo(a))}</div>
+            {a.pendingPayout && a.pendingPayoutExpires > new Date() && <div className="text-xs text-amber-700">Change awaiting the affiliate's email confirmation: {describe(a.pendingPayout)}</div>}
+          </div>
           <div className="card space-y-3 p-6">
             <div className="font-medium">Links</div>
             <CopyField value={affiliateLink(s, a)} />
