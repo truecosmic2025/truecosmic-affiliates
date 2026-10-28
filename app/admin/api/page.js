@@ -12,11 +12,14 @@ export default async function Api({ searchParams }) {
   const base = process.env.APP_URL;
   return (
     <>
-      <PageHeader title="API & webhooks" subtitle="Connect Make, Zapier, n8n or your own tools." />
+      <PageHeader title="API & webhooks" subtitle="Connect AI agents (Claude connector / MCP), Make, Zapier, n8n or your own tools." />
       {searchParams.newkey && (
         <div className="card mb-6 space-y-2 border-amber-300 bg-amber-50 p-5">
           <div className="font-medium">Your new API key. Copy it now: it won't be shown again.</div>
           <CopyField value={searchParams.newkey} />
+          <div className="pt-2 text-sm font-medium">Connector URL for Claude (claude.ai → Settings → Connectors → Add custom connector):</div>
+          <CopyField value={`${base}/mcp/${searchParams.newkey}`} />
+          <p className="text-xs text-amber-800">The connector URL contains the key, so treat it like a password. Revoking the key below disconnects it.</p>
         </div>
       )}
       <div className="grid gap-6 xl:grid-cols-2">
@@ -42,7 +45,12 @@ GET   ${base}/api/v1/payouts?affiliate_id=&status=&kind=&run_id=
 GET   ${base}/api/v1/payouts/{id}               with the commissions it covers
 GET   ${base}/api/v1/balances?affiliate_id=     cleared, clearing, in_payout, pending, paid
 
-No endpoint can create, approve or send a payout.`}</pre>
+No endpoint can create, approve or send a payout.
+
+MCP (Claude connector): ${base}/mcp/<key>   or   ${base}/mcp with Authorization: Bearer <key>
+Tools follow the key's access: programme_summary, list/get/update affiliates,
+list_referrals, list_products, get_balances, list/get payouts, list/get disputes,
+reply_to_dispute, set_dispute_status. No payout tools; payout details can't be changed.`}</pre>
           </div>
           <table className="table mt-3"><thead><tr><th>Name</th><th>Key</th><th>Access</th><th>Last used</th><th></th></tr></thead>
             <tbody>{keys.map((k) => <tr key={k.id}><td>{k.name}</td><td className="font-mono text-xs">{k.prefix}…</td><td className="max-w-[220px] text-xs">{k.scopes.includes("full") ? "Full access" : k.scopes.join(", ")}</td><td>{k.lastUsedAt ? date(k.lastUsedAt) : "never"}</td>

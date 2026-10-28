@@ -120,6 +120,7 @@ Based on truecosmic.com/academy/affiliate. Every value can be changed in Setting
 | Payout methods | ✅ Affiliates choose PayPal, Wise, Payoneer or Other; changing details needs an emailed confirmation link |
 | Pay run | ✅ Grouped by method, one approval. PayPal sent through the API with a status check; Wise batch CSV (headers configurable) then mark paid; Payoneer / Other export then mark paid with a reference. Failed payouts return to the balance and email the affiliate |
 | Manual payouts | ✅ Any affiliate, any amount, any time, with method, reference and a required reason; optionally sent through PayPal |
+| Claude connector (MCP) | ✅ `/mcp/<api-key>` for claude.ai custom connectors (or `/mcp` with a Bearer header). 13 tools, filtered by the key's access: Accounts agent (Franklin) or Affiliate manager (Grace) presets. No payout tools; payout details can't be changed |
 | AI accounts agent (Franklin) | ✅ Scoped API key: list/read disputes, reply, set status, read payouts and balances. No API endpoint can create or send a payout |
 | Disputes | ✅ Affiliates flag a referral or payout, or report a missing sale; emailed to the accounts agent (Franklin); threaded replies, statuses, and one-click commission correction from the dispute |
 | Staff access | ✅ Team page: add staff (e.g. the accounts agent) who sign in by email link |
