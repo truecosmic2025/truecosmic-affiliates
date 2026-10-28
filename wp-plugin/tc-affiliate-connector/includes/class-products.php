@@ -6,6 +6,11 @@ class TCAFF_Products {
     private static $sent = array();
 
     public static function init() {
+        // On a site without WooCommerce (e.g. the one that only runs FluentCRM) there are no products to sync
+        if (!class_exists('WooCommerce')) {
+            wp_clear_scheduled_hook('tcaff_daily_product_sync');
+            return;
+        }
         add_action('woocommerce_new_product', array(__CLASS__, 'push'), 20);
         add_action('woocommerce_update_product', array(__CLASS__, 'push'), 20);
         add_action('wp_trash_post', array(__CLASS__, 'deleted'));
@@ -46,6 +51,7 @@ class TCAFF_Products {
 
     /** Sends every product in batches. Returns count sent or WP_Error. */
     public static function sync_all() {
+        if (!class_exists('WooCommerce')) return new WP_Error('woocommerce_missing', 'WooCommerce is not active on this site');
         $page = 1;
         $count = 0;
         do {
