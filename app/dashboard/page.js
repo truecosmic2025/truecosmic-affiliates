@@ -15,7 +15,8 @@ import QrCode from "@/components/QrCode";
 import Icon from "@/components/Icon";
 
 export default async function Dashboard({ searchParams }) {
-  const { affiliate: a } = await requireAffiliate();
+  const user = await requireAffiliate();
+  const a = user.affiliate;
   const s = await getSettings();
   const m = (v) => money(v, s.currency);
   const range = parseRange(searchParams);
@@ -44,6 +45,12 @@ export default async function Dashboard({ searchParams }) {
 
   return (
     <>
+      {!user.passwordHash && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-amber-50 px-5 py-4 text-sm text-amber-900 ring-1 ring-amber-200">
+          <span><strong>Set a password</strong> so you can sign in straight away next time, without waiting for an email link.</span>
+          <Link href="/dashboard/account#password" className="btn-primary btn-sm">Set password</Link>
+        </div>
+      )}
       <section className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-cosmic-900 via-[#3b1d8f] to-cosmic-600 p-6 text-white sm:p-8">
         <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
         <div className="relative flex flex-wrap items-start justify-between gap-6">

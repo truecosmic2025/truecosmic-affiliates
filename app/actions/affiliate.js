@@ -6,6 +6,7 @@ import { syncAffiliateToCrm } from "@/lib/crm";
 import { domainOf } from "@/lib/visits";
 import { openDispute, affiliateReply } from "@/lib/disputes";
 import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 import { validateDetails, describe, payTo } from "@/lib/payoutMethods";
 import { sendTemplate } from "@/lib/notify";
 
@@ -85,4 +86,17 @@ export async function cancelPayoutChange() {
   const { affiliate } = await requireAffiliate();
   await prisma.affiliate.update({ where: { id: affiliate.id }, data: { pendingPayout: null, pendingPayoutTokenHash: null, pendingPayoutExpires: null } });
   redirect("/dashboard/account");
+}
+
+export async function setMyPassword(f) {
+  const user = await requireAffiliate();
+  const current = String(f.get("current") || "");
+  const next = String(f.get("password") || "");
+  if (next.length < 8) redirect("/dashboard/account?pwError=short#password");
+  if (next !== String(f.get("confirm") || "")) redirect("/dashboard/account?pwError=match#password");
+  // Changing an existing password needs the current one; a first password only needs the signed-in session
+  if (user.passwordHash && !(await bcrypt.compare(current, user.passwordHash))) redirect("/dashboard/account?pwError=current#password");
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(next, 10) } });
+  await logEvent("affiliate:password", "ok", `${user.email} ${user.passwordHash ? "changed" : "set"} a password`);
+  redirect("/dashboard/account?pwSaved=1#password");
 }

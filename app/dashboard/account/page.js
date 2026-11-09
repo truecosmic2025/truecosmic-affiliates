@@ -2,10 +2,12 @@ import { requireAffiliate } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 import PayoutMethodForm from "@/components/PayoutMethodForm";
 import { METHODS, payTo, describe } from "@/lib/payoutMethods";
-import { updateMyAccount, requestPayoutChange, cancelPayoutChange } from "@/app/actions/affiliate";
+import { updateMyAccount, requestPayoutChange, cancelPayoutChange, setMyPassword } from "@/app/actions/affiliate";
 
 export default async function Account({ searchParams }) {
-  const { affiliate: a } = await requireAffiliate();
+  const user = await requireAffiliate();
+  const a = user.affiliate;
+  const PW_ERRORS = { short: "Use at least 8 characters.", match: "The two passwords don’t match.", current: "Your current password isn’t right." };
   const current = payTo(a);
   const pending = a.pendingPayout && a.pendingPayoutExpires > new Date() ? a.pendingPayout : null;
   return (
@@ -38,6 +40,21 @@ export default async function Account({ searchParams }) {
           <button className="btn-primary">Save profile</button>
         </form>
       </div>
+      <form id="password" action={setMyPassword} className="card mt-6 max-w-2xl scroll-mt-6 space-y-4 p-6">
+        <div>
+          <div className="font-medium">{user.passwordHash ? "Change your password" : "Set a password"}</div>
+          <p className="muted mt-0.5">{user.passwordHash ? "You sign in with your email and this password." : "Set one so you can sign in with your email and password, without waiting for a link."}</p>
+        </div>
+        {searchParams.pwSaved && <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">Password saved. Use it next time you sign in.</p>}
+        {searchParams.pwError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{PW_ERRORS[searchParams.pwError] || PW_ERRORS.short}</p>}
+        <input type="hidden" name="username" autoComplete="username" value={a.email} readOnly />
+        {user.passwordHash && <div><label className="label" htmlFor="pw-current">Current password</label><input id="pw-current" name="current" type="password" required autoComplete="current-password" className="input" /></div>}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div><label className="label" htmlFor="pw-new">New password</label><input id="pw-new" name="password" type="password" required minLength={8} autoComplete="new-password" className="input" /></div>
+          <div><label className="label" htmlFor="pw-confirm">Repeat new password</label><input id="pw-confirm" name="confirm" type="password" required minLength={8} autoComplete="new-password" className="input" /></div>
+        </div>
+        <button className="btn-primary">{user.passwordHash ? "Change password" : "Set password"}</button>
+      </form>
     </>
   );
 }

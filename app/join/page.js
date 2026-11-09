@@ -13,6 +13,7 @@ const ERRORS = {
   velocity: "Too many applications from your connection today. Please try again tomorrow.",
   email: "Please enter a valid email address.",
   missing: "Please fill in the required fields.",
+  password: "Please choose a password of at least 8 characters.",
 };
 
 const OPTIONAL_FIELDS = {
@@ -34,7 +35,7 @@ export default async function Join({ searchParams }) {
       <AuthShell title="Thank you!">
         <p className="text-sm text-slate-600">
           {searchParams.done === "active"
-            ? "Your affiliate account is active. Log in with your email to get your links."
+            ? "Your affiliate account is active. Sign in with your email and password to get your links."
             : "Your application has been received. We'll email you as soon as it's approved."}
         </p>
         <Link href="/login" className="btn-primary mt-4 w-full">Go to login</Link>
@@ -51,7 +52,8 @@ export default async function Join({ searchParams }) {
           <div><label className="label">First name *</label><input name="firstName" required className="input" /></div>
           <div><label className="label">Last name</label><input name="lastName" className="input" /></div>
         </div>
-        <div><label className="label">Email *</label><input name="email" type="email" required className="input" /></div>
+        <div><label className="label">Email *</label><input name="email" type="email" required autoComplete="email" className="input" /></div>
+        <div><label className="label" htmlFor="join-password">Choose a password *</label><input id="join-password" name="password" type="password" required minLength={8} autoComplete="new-password" className="input" /><p className="mt-1 text-xs text-slate-500">At least 8 characters. You&apos;ll use this with your email to sign in.</p></div>
         <div><label className="label">PayPal email for payouts</label><input name="paymentEmail" type="email" className="input" placeholder="Same as above if blank" /></div>
         <div><label className="label">Preferred referral code</label><input name="code" className="input" placeholder="e.g. jane" /></div>
         {(s.registrationFields || []).filter((f) => OPTIONAL_FIELDS[f]).map((f) => (
