@@ -103,6 +103,8 @@ model Product {
   coach             String? // event host / coach whose deal sets the affiliate rate
   price             Decimal                @default(0) @db.Decimal(10, 2)
   permalink         String?
+  image             String? // featured image URL from the Academy
+  summary           String? // short description shown to affiliates
   status            String                 @default("publish")
   categories        String[]               @default([])
   commissionEnabled Boolean                @default(true)

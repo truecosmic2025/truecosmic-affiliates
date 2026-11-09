@@ -51,6 +51,18 @@ class TCAFF_Products {
             'status'     => $status,
             'type'       => $type,
             'categories' => is_wp_error($cats) ? array() : $cats,
+        ) + self::media($product_id);
+    }
+
+    /** Featured image and a short plain-text summary, shown to affiliates on their product cards. */
+    public static function media($post_id) {
+        $post = get_post($post_id);
+        $image = get_the_post_thumbnail_url($post_id, 'medium_large');
+        $text = $post ? ($post->post_excerpt ?: $post->post_content) : '';
+        $text = trim(preg_replace('/\s+/', ' ', wp_strip_all_tags(strip_shortcodes((string) $text))));
+        return array(
+            'image'   => $image ? $image : '',
+            'summary' => $text !== '' ? wp_trim_words($text, 28, '…') : '',
         );
     }
 

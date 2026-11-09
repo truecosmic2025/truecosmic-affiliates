@@ -6,6 +6,13 @@ const PER_PAGE = 12;
 
 const KINDS = { all: "All", course: "Courses", ebook: "eBooks", coaching: "Coaching", event: "Events", membership: "Memberships", other: "Other" };
 
+// Product picture from the Academy; a lettered tile when there's none or it fails to load
+function Thumb({ src, name }) {
+  const [broken, setBroken] = useState(false);
+  if (src && !broken) return <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} className="h-20 w-20 shrink-0 rounded-xl bg-slate-100 object-cover ring-1 ring-slate-200" />;
+  return <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cosmic-900 to-cosmic-500 text-2xl font-bold text-white" aria-hidden="true">{(name || "?").trim()[0]}</div>;
+}
+
 export default function LinkBuilder({ products, code, referralVar, shortBase, academyUrl, money }) {
   const [kind, setKind] = useState("all");
   const [q, setQ] = useState("");
@@ -23,7 +30,7 @@ export default function LinkBuilder({ products, code, referralVar, shortBase, ac
     }
   };
   const list = useMemo(
-    () => products.filter((p) => (kind === "all" || p.kind === kind) && p.name.toLowerCase().includes(q.toLowerCase())),
+    () => products.filter((p) => (kind === "all" || p.kind === kind) && `${p.name} ${p.summary || ""}`.toLowerCase().includes(q.toLowerCase())),
     [products, kind, q]
   );
   const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
@@ -58,17 +65,19 @@ export default function LinkBuilder({ products, code, referralVar, shortBase, ac
       <div className="grid gap-4 md:grid-cols-2">
         {shown.map((p) => (
           <div key={p.id} className={`card space-y-3 p-5 ${p.byArrangement || p.capped ? "border-amber-200 bg-amber-50/40" : ""}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="font-medium">{p.name}</div>
+            <div className="flex items-start gap-4">
+              <Thumb src={p.image} name={p.name} />
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex flex-wrap gap-1">
+                  <span className="rounded-full bg-cosmic-50 px-2 py-0.5 text-xs capitalize text-cosmic-700">{p.kind}</span>
+                  {p.byArrangement && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">By arrangement</span>}
+                  {p.capped && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">Higher rate by arrangement</span>}
+                </div>
+                <div className="font-medium leading-snug">{p.name}</div>
                 {p.byArrangement
                   ? <div className="text-xs text-slate-500">{money[p.id]}</div>
-                  : <div className="text-xs text-slate-400">{money[p.id]} · you earn {p.earn}</div>}
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <span className="rounded-full bg-cosmic-50 px-2 py-0.5 text-xs capitalize text-cosmic-700">{p.kind}</span>
-                {p.byArrangement && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">By arrangement</span>}
-                {p.capped && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">Higher rate by arrangement</span>}
+                  : <div className="text-xs text-slate-500">{money[p.id]} · you earn <span className="font-semibold text-emerald-700">{p.earn}</span></div>}
+                {p.summary && <p className="mt-1.5 line-clamp-2 text-sm text-slate-600" title={p.summary}>{p.summary}</p>}
               </div>
             </div>
             {p.capped && (

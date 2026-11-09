@@ -16,10 +16,10 @@ export default async function Links() {
   const list = products.map((p) => {
     const { type, rate, promotion, via } = rateFor({ product: p, affiliate, settings: s, ctx });
     prices[p.id] = money(p.price, s.currency);
-    if (!hasAgreedRate(p, via, s)) return { id: p.id, name: p.name, kind: p.kind, permalink: p.permalink, byArrangement: true };
+    if (!hasAgreedRate(p, via, s)) return { id: p.id, name: p.name, kind: p.kind, permalink: p.permalink, image: p.image, summary: p.summary, byArrangement: true };
     const capped = via === "coaching";
     const earn = type === "FLAT" ? money(rate, s.currency) : `${rate}% (${money((Number(p.price) * rate) / 100, s.currency)})`;
-    return { id: p.id, name: p.name, kind: p.kind, permalink: p.permalink, earn: promotion ? `${earn} · ${promotion}` : earn, capped, cappedRate: `${rate}%` };
+    return { id: p.id, name: p.name, kind: p.kind, permalink: p.permalink, image: p.image, summary: p.summary, earn: promotion ? `${earn} · ${promotion}` : earn, capped, cappedRate: `${rate}%` };
   });
   return (
     <>

@@ -158,7 +158,7 @@ class TCAFF_MemberPress {
             'status'     => $post ? $post->post_status : 'publish',
             'type'       => 'membership',
             'categories' => array('Memberships'),
-        );
+        ) + TCAFF_Products::media($post_id);
     }
 
     public static function push_membership($post_id) {
