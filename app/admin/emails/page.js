@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/ui";
 import { updateEmails, sendTestEmail } from "@/app/actions/admin";
 
 const LABELS = {
+  importWelcome: ["To imported affiliates: your new dashboard", "Sent from Import → Step 3. {balance} (carried-over balance) {minimum} {payout_day} {link} {code}"],
   adminNewApplication: ["To you: new application", "Sent to ADMIN_EMAIL when someone applies"],
   applicationReceived: ["To affiliate: application received", "When an application is pending review"],
   approved: ["To affiliate: approved", "When an account becomes active"],

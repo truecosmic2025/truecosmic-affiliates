@@ -22,7 +22,7 @@ export default async function ImportPage({ searchParams }) {
         <ImportForm type="referrals" title="Step 2 · Referrals CSV" help="Uses affiliate ID or email, amount, currency, reference (order or MemberPress transaction), context (woocommerce / memberpress), description, status and date. Paid/unpaid history is preserved; failed referrals are kept as rejected." />
       </div>
       <div className="card mt-6 flex flex-wrap items-center justify-between gap-4 p-6">
-        <div><div className="font-medium">Step 3 · Invite imported affiliates</div><p className="muted">{imported} imported affiliates. Active ones get an email explaining the new dashboard and how to sign in.</p></div>
+        <div><div className="font-medium">Step 3 · Invite imported affiliates</div><p className="muted">{imported} imported affiliates. Active ones get the “your new dashboard” email. Review it and send yourself a test under <a href="/admin/emails" className="underline">Emails</a> first.</p></div>
         <form action={inviteImportedAffiliates}><ConfirmButton className="btn-primary" message="Email every active imported affiliate now?">Send welcome emails</ConfirmButton></form>
       </div>
     </>

@@ -15,6 +15,7 @@ import { approveRun, markGroupPaid, markPaid, releasePayout, syncPayPalRun, manu
 import { slugify, money } from "@/lib/format";
 import { domainOf } from "@/lib/visits";
 import { payableWhere } from "@/lib/payouts";
+import { getBalances } from "@/lib/balances";
 import { staffReply, accountsContact } from "@/lib/disputes";
 import { PRESETS, SCOPES } from "@/lib/apiauth";
 
@@ -440,7 +441,8 @@ export async function updateEmails(f) {
 export async function sendTestEmail(key) {
   const admin = await requireAdmin();
   const sample = { id: "sample", firstName: "Sample", lastName: "Affiliate", email: admin.email, code: "sample" };
-  await sendTemplate(key, admin.email, sample, { amount: "$25.00", products: "Sample Course", reason: "Sample reason", method: "PayPal" });
+  const s = await getSettings();
+  await sendTemplate(key, admin.email, sample, { amount: "$25.00", products: "Sample Course", reason: "Sample reason", method: "PayPal", ...(await welcomeVars(s, null)), balance: "$129.68" });
   redirect(`/admin/emails?tested=${key}`);
 }
 
@@ -504,17 +506,20 @@ export async function runImport(prevState, f) {
   return { type, dryRun, ...result };
 }
 
+const ordinal = (n) => `${n}${["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`;
+
+// Balance and payout terms for the "new dashboard" email
+async function welcomeVars(s, affiliateId) {
+  const b = affiliateId ? (await getBalances({ affiliateId }))?.data?.[0] : null;
+  const owed = b ? b.cleared + b.clearing + b.pending : 0;
+  return { balance: money(owed, s.currency), minimum: money(s.minimumPayout, s.currency), payout_day: ordinal(Number(s.payoutDay) || 1) };
+}
+
 export async function inviteImportedAffiliates() {
   await requireAdmin();
   const s = await getSettings();
   const list = await prisma.affiliate.findMany({ where: { status: "ACTIVE", notes: "Imported from AffiliateWP" } });
-  for (const a of list) {
-    await sendMail(
-      a.email,
-      `${s.siteName} affiliate programme has a new home`,
-      `<p>Hi ${a.firstName || "there"},</p><p>We've moved our affiliate programme to a new dashboard. Your existing links still work and your earnings history has been carried over.</p><p>Sign in with your email here (no password needed): <a href="${process.env.APP_URL}/login">${process.env.APP_URL}/login</a></p>`
-    );
-  }
+  for (const a of list) await sendTemplate("importWelcome", a.email, a, await welcomeVars(s, a.id));
   redirect(`/admin/import?invited=${list.length}`);
 }
 
