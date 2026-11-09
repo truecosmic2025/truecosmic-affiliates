@@ -62,7 +62,12 @@ reply_to_dispute, set_dispute_status. No payout tools; payout details can't be c
                     {Object.entries(SCOPES).map(([sc, label]) => (
                       <label key={sc} className="flex items-start gap-1" title={label}><input type="checkbox" name="scopes" value={sc} defaultChecked={k.scopes.includes(sc)} className="mt-0.5" /> <span><code>{sc}</code><span className="block text-slate-400">{label}</span></span></label>
                     ))}
-                    <button className="btn-secondary btn-sm mt-1">Save access</button>
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      <button className="btn-secondary btn-sm">Save access</button>
+                      {Object.entries(PRESETS).filter(([p]) => p !== "full").map(([p, v]) => (
+                        <button key={p} name="preset" value={p} className="btn-secondary btn-sm" title={v.label}>Apply {p === "manager" ? "Affiliate manager" : p === "accounts" ? "Accounts agent" : p} access</button>
+                      ))}
+                    </div>
                   </form>
                 </details>
               </td><td>{k.lastUsedAt ? date(k.lastUsedAt) : "never"}</td>

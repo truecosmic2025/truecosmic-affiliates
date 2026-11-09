@@ -657,7 +657,8 @@ export async function deleteCoachDeal(id) {
 export async function updateApiKeyScopes(id, f) {
   await requireAdmin();
   const chosen = f.getAll("scopes").map(String);
-  const scopes = chosen.includes("full") ? ["full"] : chosen.filter((s) => SCOPES[s]);
+  const preset = PRESETS[str(f, "preset")];
+  const scopes = preset ? preset.scopes : chosen.includes("full") ? ["full"] : chosen.filter((s) => SCOPES[s]);
   const k = await prisma.apiKey.update({ where: { id }, data: { scopes } });
   await logEvent("api-key:scopes", "ok", `${k.name}: ${scopes.join(", ") || "(none)"}`);
   redirect("/admin/api?scopes=1");
