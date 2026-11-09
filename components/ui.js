@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon from "./Icon";
 
 const BADGE = {
   ACTIVE: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -28,12 +29,16 @@ export function Badge({ value }) {
   );
 }
 
-export function Stat({ label, value, hint }) {
+export function Stat({ label, value, hint, icon, tone = "violet" }) {
+  const tones = { violet: "bg-cosmic-50 text-cosmic-600", green: "bg-emerald-50 text-emerald-600", amber: "bg-amber-50 text-amber-600", sky: "bg-sky-50 text-sky-600" };
   return (
     <div className="card p-5">
-      <div className="muted">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-slate-900">{value}</div>
-      {hint && <div className="mt-1 text-xs text-slate-400">{hint}</div>}
+      <div className="flex items-start justify-between gap-3">
+        <div className="muted font-medium">{label}</div>
+        {icon && <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tones[tone] || tones.violet}`}><Icon name={icon} className="h-[18px] w-[18px]" /></span>}
+      </div>
+      <div className="mt-2 text-[26px] font-bold leading-tight tracking-tight text-slate-900">{value}</div>
+      {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
     </div>
   );
 }

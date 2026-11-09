@@ -50,7 +50,7 @@ export default function LinkBuilder({ products, code, referralVar, shortBase, ac
   return (
     <div className="space-y-6">
       <div className="card space-y-4 p-5">
-        <div className="font-medium">Make a link to any page</div>
+        <div><div className="section-title">Make a link to any page</div><p className="muted mt-0.5">Paste any truecosmic.com address and we&apos;ll add your code.</p></div>
         <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={`Paste any page, e.g. ${academyUrl}`} className="input" />
         <input value={campaign} onChange={(e) => setCampaign(e.target.value.replace(/\s+/g, "-"))} placeholder="Campaign name (optional, e.g. instagram-bio)" className="input" />
         {custom && (make(custom) ? <CopyField value={make(custom)} qr /> : <p className="text-xs text-red-600">That doesn't look like a full URL (include https://)</p>)}
@@ -58,7 +58,7 @@ export default function LinkBuilder({ products, code, referralVar, shortBase, ac
       </div>
       <div id="product-list" className="flex scroll-mt-6 flex-wrap items-center gap-2">
         {Object.entries(KINDS).map(([k, label]) => (
-          <button key={k} onClick={() => { setKind(k); setPage(1); }} className={`rounded-full px-3 py-1 text-sm ${kind === k ? "bg-cosmic-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>{label}</button>
+          <button key={k} onClick={() => { setKind(k); setPage(1); }} className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${kind === k ? "bg-cosmic-600 text-white shadow-sm" : "bg-white text-slate-600 ring-1 ring-[#E4DFF0] hover:ring-cosmic-200"}`}>{label}</button>
         ))}
         <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Search products" className="input ml-auto max-w-xs" />
       </div>
