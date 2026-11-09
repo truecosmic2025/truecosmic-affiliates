@@ -2,6 +2,8 @@
 import { useMemo, useState } from "react";
 import CopyField from "./CopyField";
 
+const PER_PAGE = 12;
+
 const KINDS = { all: "All", course: "Courses", ebook: "eBooks", coaching: "Coaching", event: "Events", membership: "Memberships", other: "Other" };
 
 export default function LinkBuilder({ products, code, referralVar, shortBase, academyUrl, money }) {
@@ -9,6 +11,7 @@ export default function LinkBuilder({ products, code, referralVar, shortBase, ac
   const [q, setQ] = useState("");
   const [custom, setCustom] = useState("");
   const [campaign, setCampaign] = useState("");
+  const [page, setPage] = useState(1);
   const make = (url) => {
     try {
       const u = new URL(url);
@@ -23,6 +26,20 @@ export default function LinkBuilder({ products, code, referralVar, shortBase, ac
     () => products.filter((p) => (kind === "all" || p.kind === kind) && p.name.toLowerCase().includes(q.toLowerCase())),
     [products, kind, q]
   );
+  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+  const current = Math.min(page, pages);
+  const start = (current - 1) * PER_PAGE;
+  const shown = list.slice(start, start + PER_PAGE);
+  const go = (n) => {
+    setPage(n);
+    document.getElementById("product-list")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  // 1 … 4 5 6 … 31
+  const pageNumbers = [];
+  for (let n = 1; n <= pages; n++) {
+    if (n === 1 || n === pages || Math.abs(n - current) <= 1) pageNumbers.push(n);
+    else if (pageNumbers[pageNumbers.length - 1] !== "…") pageNumbers.push("…");
+  }
   return (
     <div className="space-y-6">
       <div className="card space-y-4 p-5">
@@ -32,24 +49,52 @@ export default function LinkBuilder({ products, code, referralVar, shortBase, ac
         {custom && (make(custom) ? <CopyField value={make(custom)} qr /> : <p className="text-xs text-red-600">That doesn't look like a full URL (include https://)</p>)}
         <div className="text-xs text-slate-400">Short link: <span className="font-mono">{shortBase}/r/{code}</span> (add <span className="font-mono">?to=/academy/page/</span> to point it anywhere)</div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div id="product-list" className="flex scroll-mt-6 flex-wrap items-center gap-2">
         {Object.entries(KINDS).map(([k, label]) => (
-          <button key={k} onClick={() => setKind(k)} className={`rounded-full px-3 py-1 text-sm ${kind === k ? "bg-cosmic-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>{label}</button>
+          <button key={k} onClick={() => { setKind(k); setPage(1); }} className={`rounded-full px-3 py-1 text-sm ${kind === k ? "bg-cosmic-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>{label}</button>
         ))}
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products" className="input ml-auto max-w-xs" />
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Search products" className="input ml-auto max-w-xs" />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {list.map((p) => (
-          <div key={p.id} className="card space-y-3 p-5">
+        {shown.map((p) => (
+          <div key={p.id} className={`card space-y-3 p-5 ${p.byArrangement ? "border-amber-200 bg-amber-50/40" : ""}`}>
             <div className="flex items-start justify-between gap-3">
-              <div><div className="font-medium">{p.name}</div><div className="text-xs text-slate-400">{money[p.id]} · you earn {p.earn}</div></div>
-              <span className="rounded-full bg-cosmic-50 px-2 py-0.5 text-xs capitalize text-cosmic-700">{p.kind}</span>
+              <div>
+                <div className="font-medium">{p.name}</div>
+                {p.byArrangement
+                  ? <div className="text-xs text-slate-500">{money[p.id]}</div>
+                  : <div className="text-xs text-slate-400">{money[p.id]} · you earn {p.earn}</div>}
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <span className="rounded-full bg-cosmic-50 px-2 py-0.5 text-xs capitalize text-cosmic-700">{p.kind}</span>
+                {p.byArrangement && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">By arrangement</span>}
+              </div>
             </div>
+            {p.byArrangement && (
+              <p className="rounded-lg bg-amber-100/60 px-3 py-2 text-xs text-amber-900">
+                No commission by default: it&apos;s agreed case by case. <a href="/dashboard/disputes" className="font-semibold underline">Ask us</a> before promoting it if you&apos;d like to earn on it.
+              </p>
+            )}
             {p.permalink ? <CopyField value={make(p.permalink)} qr /> : <p className="text-xs text-slate-400">No public page yet</p>}
           </div>
         ))}
       </div>
       {!list.length && <p className="text-center text-sm text-slate-400">No products match</p>}
+      {pages > 1 && (
+        <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Product pages">
+          <p className="text-sm text-slate-500">Showing {start + 1}–{Math.min(start + PER_PAGE, list.length)} of {list.length}</p>
+          <div className="flex flex-wrap items-center gap-1">
+            <button type="button" className="btn-secondary btn-sm" disabled={current === 1} onClick={() => go(current - 1)}>Previous</button>
+            {pageNumbers.map((n, i) =>
+              n === "…" ? <span key={`gap${i}`} className="px-1 text-sm text-slate-400">…</span> : (
+                <button key={n} type="button" aria-current={n === current ? "page" : undefined} onClick={() => go(n)}
+                  className={`min-w-[2rem] rounded-lg px-2 py-1 text-sm ${n === current ? "bg-cosmic-600 font-semibold text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"}`}>{n}</button>
+              )
+            )}
+            <button type="button" className="btn-secondary btn-sm" disabled={current === pages} onClick={() => go(current + 1)}>Next</button>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

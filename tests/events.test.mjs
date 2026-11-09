@@ -41,3 +41,15 @@ test("ticket product types are classed as events", () => {
 test("MemberPress memberships are their own product type", () => {
   assert.equal(productKind(["Memberships"], "Premium Membership", "membership"), "membership");
 });
+
+test("coaching earns nothing by default, only with a rate agreed case by case", () => {
+  const coaching = (extra = {}) => ({ id: "c1", kind: "coaching", coach: "Sarah Ramsarran", categories: ["Coaching"], commissionEnabled: true, ...extra });
+  const s = { ...settings, coachingNeedsAgreedRate: true };
+  const none = calculateCommission({ items: [item], productsByWcId: { 900: coaching() }, affiliate: { rateType: "PERCENTAGE", rate: 25 }, settings: s, ctx: {} });
+  assert.equal(none.amount, 0);
+  assert.equal(none.lines[0].note, "coaching: no rate agreed yet");
+  assert.equal(calculateCommission({ items: [item], productsByWcId: { 900: coaching({ rateType: "PERCENTAGE", rate: 10 }) }, affiliate: {}, settings: s, ctx: {} }).amount, 20);
+  const deal = { coachDeals: { "sarah ramsarran": { coach: "Sarah Ramsarran", rateType: "PERCENTAGE", rate: 10 } } };
+  assert.equal(calculateCommission({ items: [item], productsByWcId: { 900: coaching() }, affiliate: {}, settings: s, ctx: deal }).amount, 20);
+  assert.equal(calculateCommission({ items: [item], productsByWcId: { 900: coaching() }, affiliate: {}, settings: { ...s, coachingNeedsAgreedRate: false }, ctx: {} }).amount, 70);
+});

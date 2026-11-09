@@ -40,7 +40,7 @@ export default async function Products({ searchParams }) {
 
   return (
     <>
-      <PageHeader title="Products" subtitle={`Synced automatically from WooCommerce. New products ${s.newProductsEarnCommission ? "earn" : "do not earn"} the default ${def} unless changed here${s.eventsNeedAgreedRate ? "; events earn only once a rate is agreed (coach deal or event rate)" : ""}.`}>
+      <PageHeader title="Products" subtitle={`Synced automatically from WooCommerce. New products ${s.newProductsEarnCommission ? "earn" : "do not earn"} the default ${def} unless changed here${s.eventsNeedAgreedRate ? "; events earn only once a rate is agreed (coach deal or event rate)" : ""}${s.coachingNeedsAgreedRate ? "; coaching earns only once a rate is agreed" : ""}.`}>
         <form action={requestProductSync}><button className="btn-secondary">Re-sync all from WooCommerce</button></form>
       </PageHeader>
       {searchParams.synced && <p className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">WordPress sent {searchParams.synced} products.</p>}

@@ -402,6 +402,7 @@ export async function updateSettings(f) {
     includeTax: bool("includeTax"),
     ignoreZeroReferrals: bool("ignoreZeroReferrals"),
     eventsNeedAgreedRate: bool("eventsNeedAgreedRate"),
+    coachingNeedsAgreedRate: bool("coachingNeedsAgreedRate"),
     lifetimeCommissions: bool("lifetimeCommissions"),
     lifetimeRateType: str(f, "lifetimeRateType") || "",
     lifetimeRate: str(f, "lifetimeRate") == null ? null : n("lifetimeRate"),
